@@ -54,6 +54,18 @@ Yetkisiz bir kullanıcı, başkasının talep kimliğini bilse bile "var ama yas
 
 Test veritabanı `talepakis_test` her oturumda silinip yeniden kurulur ve migration'lar uygulanır; bu hem şemayı hem migration'ları sınar. Ad sabittir, geliştirme veritabanına dokunulmaz. Satır kilidi (`SELECT ... FOR UPDATE`) PostgreSQL'e özgü olduğu için SQLite ile sınanamazdı. Mutasyon denemesiyle (kasıtlı hata sokma) testlerin kilidi, görünürlüğü, imza doğrulamasını ve yetki kontrollerini gerçekten yakaladığı doğrulandı.
 
+## D15 — Mobil: Expo Router, bağımlılıksız durum yönetimi (2026-10-01)
+
+Expo SDK 57 (React Native 0.86, resmî belgeden doğrulandı; Node ≥ 22.13, bizde 24). Gezinme Expo Router: korumalı rotalar (`Stack.Protected`) oturuma göre giriş/ana ekranı seçer. Bu yönlendirme yalnızca kolaylıktır; erişimi sunucu denetler. Durum yönetimi için ek kütüphane (Redux, React Query) yok: oturum bir React bağlamı, ekran verisi küçük bir `useResource` kancası (ilk yükleme, aşağı çek-yenile, ekran öne gelince sessiz yenileme, süzgeç değişince baştan yükleme). Simge kütüphanesi eklenmedi (sekmeler metin etiketli); bağımlılık sayısı bilerek düşük.
+
+## D16 — İstemci izin kararı vermez (2026-10-01)
+
+Ayrıntı ekranındaki işlem düğmeleri, sunucunun döndürdüğü `allowed_transitions`'tan çizilir; istemcide rol/durum kuralı yoktur (kural tek yerde: `domain/workflow.py`). İstemci yalnızca düğme adlarını Türkçeleştirir. Kuralların senkron kalması için `actions.test.ts` sunucudaki geçiş tablosunun bir kopyasıyla her geçişin okunur bir etiketi olduğunu doğrular. Onay adımı satır içidir; `Alert.alert` web'de çalışmadığı için kullanılmadı. Ham sunucu hata metinleri (5xx) kullanıcıya gösterilmez.
+
+## D17 — Mobilin doğrulama yolu: Expo web önizlemesi (2026-10-01)
+
+Bu geliştirme ortamında telefon veya emülatör yok. Mobil kod `react-native-web` ile tarayıcıda çalıştırılıp gerçek API'ye karşı uçtan uca denendi (giriş, liste, süzgeç, ayrıntı, işlemler, yeni talep, 401 ve bağlantı hatası durumları). Bu, gerçek cihaz testinin yerini tutmaz: SecureStore, klavye davranışı ve platform farkları cihazda ayrıca denenmelidir. Koordinatla tıklama bu tarayıcı bölmesinde güvenilmez olduğu için gezinme DOM tıklamasıyla, metin girişi gerçek klavye yazımıyla yapıldı.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

@@ -48,3 +48,4 @@ desktop.ini
 # --- Ajan yerel dosyaları (AGENTS.md ve CLAUDE.md commitlenir) ---
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/launch.json

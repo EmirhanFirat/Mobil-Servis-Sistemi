@@ -22,6 +22,8 @@ Yeni oturumda sırayla oku: bu dosya → `docs/STATUS.md` → `docs/PLAN.md` →
 - Mevcut çalışan kodu sırf yığın listesine uymak için yeniden yazma. Küçük proje için gereksiz servis ve soyutlama üretme.
 - Global paket kurulumu ve makinede gereksiz değişiklik yapma. Python bağımsızlıkları `services/api/.venv` içinde, Node bağımsızlıkları proje içinde kurulur. Kilit dosyaları commitlenir.
 - Python komutları: `services/api` içinde `.venv\Scripts\python.exe -m ...` (testler `pytest`, lint `ruff check .` ve `ruff format --check .`).
+- Mobil (`apps/mobile`, Expo SDK 57): bağımlılık eklerken `npx expo install <paket>` (SDK uyumlu sürümü seçer). Kontroller: `npm run typecheck`, `npx expo lint`, `npm test` (Jest). Expo her SDK'da API değiştirir; Expo/React Native API'sine dokunmadan önce `apps/mobile/AGENTS.md` ve sürümlü belgeye (https://docs.expo.dev/versions/v57.0.0/) bak. O dosya `create-expo-app` şablonundan gelir; git ve commit kuralları için bu kök dosya geçerlidir.
+- `npm audit fix --force` çalıştırma (uyumu bozar); açık uyarıları `docs/STATUS.md`'ye not et.
 - Docker daemon kapalı olabilir; PostgreSQL için `docker compose` kullan, varsayma, önce `docker info` ile kontrol et.
 
 ## Mimari ilkeler

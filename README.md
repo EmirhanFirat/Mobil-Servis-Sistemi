@@ -4,13 +4,13 @@ Kampüs veya yurt bakım ekipleri için mobil servis talebi ve iş yönlendirme 
 
 Projenin araştırma sorusu: **Türkçe servis taleplerinde Jev, ekonomik bir LLM ve hibrit yaklaşım arasında doğruluk, işlem süresi ve maliyet nasıl değişiyor?** Sonuçlar ölçülmeden hiçbir tasarruf veya başarı iddiası yapılmaz.
 
-> **Durum:** Aşama 1 sürüyor. **API tamamlandı:** giriş ve roller, talep açma/listeleme/ayrıntı, ekip kuyruğu, rol bazlı durum geçişleri, olay geçmişi, yönetici işlemleri. Mobil uygulama ve yönetici paneli sırada. Karar motoru (kategori/öncelik önerisi) ve model karşılaştırması henüz yok; şu an yönlendirmeyi yönetici elle yapar. Ayrıntı: [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md).
+> **Durum:** Aşama 1 sürüyor. **API ve mobil uygulama tamamlandı:** giriş ve roller, talep açma/listeleme/ayrıntı, ekip kuyruğu, rol bazlı durum geçişleri, olay geçmişi. Yönetici paneli (web) sırada. Karar motoru (kategori/öncelik önerisi) ve model karşılaştırması henüz yok; şu an yönlendirmeyi yönetici yapar. Mobil uygulama tarayıcı önizlemesinde uçtan uca doğrulandı; gerçek telefonda/emülatörde henüz denenmedi. Ayrıntı: [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md).
 
 ## Yapı
 
 ```
 services/api   FastAPI sunucusu (Python 3.12, SQLAlchemy, Alembic, PostgreSQL)
-apps/mobile    Expo + React Native + TypeScript   (sırada)
+apps/mobile    Expo (SDK 57) + React Native + TypeScript
 apps/admin     Yönetici paneli, React web         (sırada)
 evaluation     Benchmark ve değerlendirme         (Aşama 4)
 docs           Plan, durum ve mimari kararlar
@@ -72,9 +72,28 @@ Sunucu `http://127.0.0.1:8000` adresinde açılır. Etkileşimli API belgeleri: 
 
 Görme yetkin olmayan bir talep, olmayan bir talepten ayırt edilemez (`404`).
 
+## Mobil uygulamayı çalıştırma
+
+API çalışıyorken (yukarıdaki 1–4. adımlar):
+
+```powershell
+cd apps\mobile
+npm install
+npx expo start              # QR kodu telefondaki Expo Go ile okut
+npx expo start --web        # tarayıcıda önizleme (geliştirme/doğrulama için)
+```
+
+**API adresi** şu sırayla bulunur: `EXPO_PUBLIC_API_URL` ortam değişkeni → Expo geliştirme sunucusunun bilgisayar adresi (telefonda Expo Go ile otomatik, bilgisayar ve telefon aynı Wi-Fi'da olmalı) → Android emülatöründe `10.0.2.2` → `127.0.0.1`. Telefonda API'yi `--host 0.0.0.0` ile başlatmayı unutma (aşağıdaki bölüm). `http://` yalnızca geliştirme içindir; yayında `https://` adres ver. Bu değişken uygulama paketine gömülür, gizli bilgi koyma.
+
+Oturum token'ı telefonda cihazın güvenli deposunda (iOS Keychain / Android Keystore, `expo-secure-store`) saklanır. Web önizlemesinde güvenli depo olmadığı için `localStorage` kullanılır; bu yalnızca geliştirme içindir.
+
+Giriş yaptıktan sonra: **Taleplerim** (açtığın talepler), **Yeni talep**, **İş listesi** (yalnızca teknik görevli ve yönetici; ekip kuyruğu ve süzgeçler), **Hesap**. Talep ayrıntısında olay geçmişi ve sunucunun sana izin verdiği işlemler (işleme al, çözüldü, kapat, yeniden aç...) görünür.
+
 ## Testler ve lint
 
-Testler gerçek PostgreSQL ister: her çalıştırmada ayrı bir `talepakis_test` veritabanı **sıfırdan** kurulur ve migration'lar uygulanır; geliştirme verisine dokunulmaz. Docker kapalıysa testler açık bir mesajla durur.
+Mobil: `cd apps\mobile`, sonra `npm test` (Jest), `npm run typecheck`, `npx expo lint`.
+
+API testleri gerçek PostgreSQL ister: her çalıştırmada ayrı bir `talepakis_test` veritabanı **sıfırdan** kurulur ve migration'lar uygulanır; geliştirme verisine dokunulmaz. Docker kapalıysa testler açık bir mesajla durur.
 
 ```powershell
 cd services\api
