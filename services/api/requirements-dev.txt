@@ -4,6 +4,10 @@
 #
 #    pip-compile --no-index --output-file=requirements-dev.txt --strip-extras requirements-dev.in
 #
+alembic==1.20.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 annotated-doc==0.0.5
     # via
     #   -c requirements.txt
@@ -18,12 +22,24 @@ anyio==4.15.1
     #   httpx
     #   starlette
     #   watchfiles
+argon2-cffi==25.1.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+argon2-cffi-bindings==26.1.0
+    # via
+    #   -c requirements.txt
+    #   argon2-cffi
 build==1.6.1
     # via pip-tools
 certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+cffi==2.1.1
+    # via
+    #   -c requirements.txt
+    #   argon2-cffi-bindings
 click==8.5.0
     # via
     #   -c requirements.txt
@@ -57,6 +73,14 @@ idna==3.20
     #   httpx
 iniconfig==2.3.0
     # via pytest
+mako==1.4.3
+    # via
+    #   -c requirements.txt
+    #   alembic
+markupsafe==3.0.3
+    # via
+    #   -c requirements.txt
+    #   mako
 opentelemetry-api==1.45.0
     # via
     #   -c requirements.txt
@@ -70,6 +94,18 @@ pip-tools==7.6.1
     # via -r requirements-dev.in
 pluggy==1.6.0
     # via pytest
+psycopg==3.3.6
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+psycopg-binary==3.3.6
+    # via
+    #   -c requirements.txt
+    #   psycopg
+pycparser==3.0
+    # via
+    #   -c requirements.txt
+    #   cffi
 pydantic==2.13.5
     # via
     #   -c requirements.txt
@@ -85,6 +121,10 @@ pydantic-settings==2.15.0
     #   -r requirements.in
 pygments==2.21.0
     # via pytest
+pyjwt==2.15.1
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 pyproject-hooks==1.3.3
     # via
     #   build
@@ -102,6 +142,11 @@ pyyaml==6.0.3
     #   uvicorn
 ruff==0.16.10
     # via -r requirements-dev.in
+sqlalchemy==2.1.1
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
+    #   alembic
 starlette==1.7.0
     # via
     #   -c requirements.txt
@@ -109,11 +154,14 @@ starlette==1.7.0
 typing-extensions==4.16.0
     # via
     #   -c requirements.txt
+    #   alembic
     #   anyio
     #   fastapi
     #   opentelemetry-api
+    #   psycopg
     #   pydantic
     #   pydantic-core
+    #   sqlalchemy
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4
@@ -122,6 +170,10 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.4
+    # via
+    #   -c requirements.txt
+    #   psycopg
 uvicorn==0.54.0
     # via
     #   -c requirements.txt

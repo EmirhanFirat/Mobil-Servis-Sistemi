@@ -4,14 +4,14 @@ Kampüs veya yurt bakım ekipleri için mobil servis talebi ve iş yönlendirme 
 
 Projenin araştırma sorusu: **Türkçe servis taleplerinde Jev, ekonomik bir LLM ve hibrit yaklaşım arasında doğruluk, işlem süresi ve maliyet nasıl değişiyor?** Sonuçlar ölçülmeden hiçbir tasarruf veya başarı iddiası yapılmaz.
 
-> **Durum:** Aşama 0 (iskelet). Şu an yalnızca API iskeleti ve `/health` uç noktası vardır. Giriş, talepler, karar motoru, mobil uygulama ve yönetici paneli planlandı ama henüz yok. Ayrıntı için [docs/STATUS.md](docs/STATUS.md) ve [docs/PLAN.md](docs/PLAN.md).
+> **Durum:** Aşama 1 sürüyor. **API tamamlandı:** giriş ve roller, talep açma/listeleme/ayrıntı, ekip kuyruğu, rol bazlı durum geçişleri, olay geçmişi, yönetici işlemleri. Mobil uygulama ve yönetici paneli sırada. Karar motoru (kategori/öncelik önerisi) ve model karşılaştırması henüz yok; şu an yönlendirmeyi yönetici elle yapar. Ayrıntı: [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md).
 
 ## Yapı
 
 ```
-services/api   FastAPI sunucusu (Python 3.12)
-apps/mobile    Expo + React Native + TypeScript   (Aşama 1)
-apps/admin     Yönetici paneli, React web         (Aşama 1)
+services/api   FastAPI sunucusu (Python 3.12, SQLAlchemy, Alembic, PostgreSQL)
+apps/mobile    Expo + React Native + TypeScript   (sırada)
+apps/admin     Yönetici paneli, React web         (sırada)
 evaluation     Benchmark ve değerlendirme         (Aşama 4)
 docs           Plan, durum ve mimari kararlar
 ```
@@ -28,16 +28,53 @@ docs           Plan, durum ve mimari kararlar
 Komutlar proje kökünden başlar. Klasör adında boşluk olduğu için yolları tırnak içine al.
 
 ```powershell
+# 1) Veritabanı (Docker Desktop açık olmalı)
+docker compose up -d db
+
+# 2) Python ortamı ve bağımlılıklar
 cd services\api
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 Copy-Item .env.example .env
+
+# 3) Şema ve demo verisi
+.\.venv\Scripts\alembic.exe upgrade head
+.\.venv\Scripts\python.exe -m app.seed
+
+# 4) Sunucu
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-Sunucu `http://127.0.0.1:8000` adresinde açılır. Kontrol: `http://127.0.0.1:8000/health`. Otomatik API belgeleri: `http://127.0.0.1:8000/docs`.
+Sunucu `http://127.0.0.1:8000` adresinde açılır. Etkileşimli API belgeleri: `http://127.0.0.1:8000/docs` ("Authorize" ile giriş yanıtındaki token'ı gir). Kontrol uçları: `/health` (süreç ayakta mı), `/health/ready` (veritabanı dahil hazır mı).
+
+> Veritabanı adresinde `localhost` yerine `127.0.0.1` kullan. Windows'ta `localhost` önce IPv6'yı dener ve her bağlantıda yaklaşık 8 saniye bekler.
+
+### Demo kullanıcıları (yalnızca geliştirme)
+
+`python -m app.seed` aşağıdaki hesapları ve dört örnek talebi oluşturur; üretim ortamında çalışmayı reddeder. Ortak demo parolası [services/api/app/seed.py](services/api/app/seed.py) içindeki `DEMO_PASSWORD` değeridir ve seed çıktısında da yazılır.
+
+| Kullanıcı adı | Rol | Ekip |
+|---|---|---|
+| `yonetici` | Yönetici | — |
+| `elektrik.usta`, `tesisat.usta`, `bt.destek`, `temizlik.gorevli`, `genel.bakim` | Teknik görevli | kendi ekibi |
+| `ayse`, `burak` | Talep sahibi | — |
+
+### API özeti
+
+| Uç nokta | Kim | Ne yapar |
+|---|---|---|
+| `POST /auth/login`, `GET /auth/me` | herkes | Giriş ve oturumdaki kullanıcı |
+| `GET /meta/vocabulary` | herkes | Kodlar ve Türkçe görünen adlar |
+| `POST /tickets`, `GET /tickets`, `GET /tickets/{id}` | giriş yapmış | Talep aç; görebildiklerini listele (`scope=mine\|queue`, `status`, sayfalama); ayrıntı ve geçmiş |
+| `POST /tickets/{id}/transitions` | rol ve bağlama göre | Durum değiştir (izinli geçişleri ayrıntı yanıtı `allowed_transitions` olarak söyler) |
+| `POST /tickets/{id}/assignment`, `PATCH /tickets/{id}` | yönetici | Ekibe/görevliye ata; öncelik, kategori, eksik bilgi düzelt |
+| `/admin/users`, `/admin/teams` | yönetici | Kullanıcı ve ekip üyeliği yönetimi |
+
+Görme yetkin olmayan bir talep, olmayan bir talepten ayırt edilemez (`404`).
 
 ## Testler ve lint
+
+Testler gerçek PostgreSQL ister: her çalıştırmada ayrı bir `talepakis_test` veritabanı **sıfırdan** kurulur ve migration'lar uygulanır; geliştirme verisine dokunulmaz. Docker kapalıysa testler açık bir mesajla durur.
 
 ```powershell
 cd services\api
@@ -46,16 +83,7 @@ cd services\api
 .\.venv\Scripts\ruff.exe format --check .
 ```
 
-## PostgreSQL (Docker)
-
-Docker Desktop açıkken proje kökünden:
-
-```powershell
-docker compose up -d db
-docker compose ps
-```
-
-Veritabanı yalnızca bu bilgisayardan (`127.0.0.1:5432`) erişilebilir. Kapatmak için `docker compose down`; kayıtlı veriyi de silmek için `docker compose down -v`. Docker kapalıysa `docker info` bağlantı hatası verir; önce Docker Desktop'ı başlat.
+Geliştirme veritabanını sıfırlamak için: `docker compose down -v`, sonra yukarıdaki 1–3. adımlar.
 
 ## Telefondan API'ye erişim (localhost ve bilgisayarın IP'si)
 
@@ -70,6 +98,9 @@ Telefondaki uygulamada `localhost` veya `127.0.0.1`, **telefonun kendisi** demek
 
 ## Güvenlik notları
 
+- Yetkilendirme sunucuda uygulanır; istemci yalnızca gösterir. Rol ve hesap durumu her istekte veritabanından okunur, token'daki bilgiye güvenilmez.
+- Parolalar Argon2 ile özetlenir; oturum token'ı HS256 imzalıdır ve `TALEPAKIS_SECRET_KEY` ile imzalanır. Üretimde bu anahtar zorunlu ve en az 32 karakterdir (yoksa uygulama açılmaz).
 - API anahtarları yalnızca backend ortam değişkenlerinden okunur; mobil uygulamaya hiçbir zaman konmaz.
 - `.env` dosyaları commitlenmez; yalnızca sahte değerli `.env.example` depoda durur.
 - Ücretli model çağrıları varsayılan olarak kapalıdır; bütçe onayı olmadan gerçek model çağrısı yapılmaz.
+- Bilinen eksik: giriş denemelerine hız sınırı/hesap kilidi henüz yok (Aşama 5'te eklenecek).

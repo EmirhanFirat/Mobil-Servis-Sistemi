@@ -2,3 +2,8 @@
 fastapi
 uvicorn[standard]
 pydantic-settings
+sqlalchemy
+alembic
+psycopg[binary]
+argon2-cffi
+pyjwt
