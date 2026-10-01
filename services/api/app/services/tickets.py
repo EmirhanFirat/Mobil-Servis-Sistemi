@@ -114,6 +114,21 @@ def _add_event(ticket: Ticket, actor: User | None, kind: str, **data: object) ->
     ticket.events.append(TicketEvent(actor_id=actor.id if actor else None, kind=kind, data=clean))
 
 
+def _add_assignee_event(ticket: Ticket, actor: User, old: User | None, new: User | None) -> None:
+    """Görevli değişimi. Adlar o anki görüntü olarak saklanır; ad değişse geçmiş bozulmaz."""
+    _add_event(
+        ticket,
+        actor,
+        "assignee_changed",
+        **{
+            "from": str(old.id) if old else None,
+            "from_name": old.display_name if old else None,
+            "to": str(new.id) if new else None,
+            "to_name": new.display_name if new else None,
+        },
+    )
+
+
 def create_ticket(db: Session, user: User, data: TicketCreate) -> Ticket:
     ticket = Ticket(
         title=data.title,
@@ -144,7 +159,7 @@ def transition_ticket(
             f"'{STATUS_LABELS[old]}' durumundan '{STATUS_LABELS[to]}' durumuna geçilemez.",
         )
 
-    previous_assignee = ticket.assignee_id
+    previous_assignee = ticket.assignee  # değişiklikten önce; olay adı anlık görüntü olarak saklar
     ticket.status = to
     if to is TicketStatus.NEEDS_REVIEW:
         ticket.review_required = True
@@ -161,15 +176,10 @@ def transition_ticket(
         ticket.assignee_id = None  # iş kuyruğa geri bırakıldı
 
     _add_event(ticket, user, "status_changed", **{"from": old.value, "to": to.value, "note": note})
-    if ticket.assignee_id != previous_assignee:
-        _add_event(
-            ticket,
-            user,
-            "assignee_changed",
-            **{
-                "from": str(previous_assignee) if previous_assignee else None,
-                "to": str(ticket.assignee_id) if ticket.assignee_id else None,
-            },
+    if ticket.assignee_id != (previous_assignee.id if previous_assignee else None):
+        # Görevli ya temizlendi ya da işi üstlenen kullanıcı oldu.
+        _add_assignee_event(
+            ticket, user, previous_assignee, user if ticket.assignee_id == user.id else None
         )
     db.commit()
     return ticket
@@ -205,7 +215,8 @@ def assign_ticket(db: Session, user: User, ticket_id: UUID, data: AssignRequest)
             )
 
     old_team = db.get(Team, ticket.team_id) if ticket.team_id else None
-    old_assignee_id = ticket.assignee_id
+    old_assignee = ticket.assignee
+    old_assignee_id = old_assignee.id if old_assignee else None
     new_assignee_id = assignee.id if assignee else None
     old_status = ticket.status
 
@@ -229,15 +240,7 @@ def assign_ticket(db: Session, user: User, ticket_id: UUID, data: AssignRequest)
             **{"from": old_team.code if old_team else None, "to": team.code, "note": data.note},
         )
     if old_assignee_id != new_assignee_id:
-        _add_event(
-            ticket,
-            user,
-            "assignee_changed",
-            **{
-                "from": str(old_assignee_id) if old_assignee_id else None,
-                "to": str(new_assignee_id) if new_assignee_id else None,
-            },
-        )
+        _add_assignee_event(ticket, user, old_assignee, assignee)
     if old_status is not TicketStatus.ASSIGNED:
         _add_event(
             ticket,

@@ -18,6 +18,7 @@ def vocabulary() -> Vocabulary:
         statuses=_labeled(v.STATUS_LABELS),
         priorities=_labeled(v.PRIORITY_LABELS),
         categories=_labeled(v.CATEGORY_LABELS),
+        teams=_labeled(v.TEAM_NAMES),
         missing_info=_labeled(v.MISSING_INFO_LABELS),
         category_default_team={
             category.value: team.value for category, team in v.CATEGORY_DEFAULT_TEAM.items()

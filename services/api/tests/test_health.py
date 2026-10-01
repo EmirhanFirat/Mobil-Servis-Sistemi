@@ -85,5 +85,7 @@ def test_sozluk_ucu_kodlari_ve_turkce_adlari_dondurur(client: TestClient):
         "new", "needs_review", "assigned", "in_progress", "resolved", "closed",
     }  # fmt: skip
     assert {"code": "in_progress", "label": "İşlemde"} in body["statuses"]
+    assert {"code": "plumbing", "label": "Su/Tesisat Ekibi"} in body["teams"]
+    assert len(body["teams"]) == 5
     assert body["category_default_team"]["electrical"] == "electrical"
     assert body["category_default_team"]["other"] == "general"

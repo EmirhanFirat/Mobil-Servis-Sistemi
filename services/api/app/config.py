@@ -22,8 +22,14 @@ class Settings(BaseSettings):
     secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)
     access_token_minutes: int = 480
 
-    # Yönetici panelinin (tarayıcı) API'ye erişebileceği kaynaklar.
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Tarayıcıdan API'ye erişebilen kaynaklar: yönetici paneli (5173) ve mobil uygulamanın web
+    # önizlemesi (8081). Yalnızca geliştirme varsayılanıdır; üretimde ortam değişkeniyle verilir.
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+    ]
 
     @model_validator(mode="after")
     def _uretimde_guclu_anahtar_iste(self) -> "Settings":

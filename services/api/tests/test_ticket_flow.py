@@ -202,6 +202,11 @@ def test_bastan_sona_akis_ve_olay_gecmisi(flow):
     }
     assert priority["actor"]["role"] == "admin"
     assert events[4]["data"] == {"to": "electrical"}
+    # Görevli adı o anki görüntü olarak olayda saklanır; istemci ayrıca sorgulamak zorunda kalmaz
+    assert events[5]["data"] == {
+        "to": str(flow.people["elektrik"].id),
+        "to_name": "Elektrik Usta",
+    }
     assert events[7]["data"] == {"from": "assigned", "to": "in_progress", "note": "Yola çıktım"}
     assert events[7]["actor"]["display_name"] == "Elektrik Usta"
     assert events[-1]["actor"]["display_name"] == "Ayse"
@@ -246,6 +251,11 @@ def test_gorevli_isi_kuyruga_geri_birakinca_sorumlu_temizlenir(flow):
     released = flow.move(ticket, "assigned", "elektrik", "Malzeme yok").json()
 
     assert released["status"] == "assigned" and released["assignee"] is None
+    assignee_event = [e for e in released["events"] if e["kind"] == "assignee_changed"][-1]
+    assert assignee_event["data"] == {
+        "from": str(flow.people["elektrik"].id),
+        "from_name": "Elektrik Usta",
+    }
     assert flow.move(ticket, "in_progress", "elektrik2").status_code == 200  # başkası alabilir
 
 

@@ -157,6 +157,7 @@ class Vocabulary(BaseModel):
     statuses: list[LabeledValue]
     priorities: list[LabeledValue]
     categories: list[LabeledValue]
+    teams: list[LabeledValue]
     missing_info: list[LabeledValue]
     # Kategori → varsayılan ekip kodu
     category_default_team: dict[str, str]
