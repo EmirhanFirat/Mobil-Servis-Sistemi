@@ -1,0 +1,50 @@
+# --- Gizli bilgiler ve ortam dosyaları ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# --- Node / Expo / React ---
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+web-build/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Yerel veritabanı ve veri çıktıları ---
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+pgdata/
+evaluation/runs/
+evaluation/raw/
+
+# --- Günlükler ---
+*.log
+logs/
+
+# --- Editör ve işletim sistemi ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Ajan yerel dosyaları (AGENTS.md ve CLAUDE.md commitlenir) ---
+CLAUDE.local.md
+.claude/settings.local.json

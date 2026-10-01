@@ -1,0 +1,23 @@
+# Yerel geliştirme veritabanı. Parola yalnızca bu geliştirme kapsayıcısı içindir.
+# Başlat:  docker compose up -d db      Durdur:  docker compose down
+# Veriyi de silmek için: docker compose down -v
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: talepakis
+      POSTGRES_PASSWORD: talepakis
+      POSTGRES_DB: talepakis
+    ports:
+      # Yalnızca bu bilgisayardan erişilir; yerel ağa açılmaz.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talepakis -d talepakis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
