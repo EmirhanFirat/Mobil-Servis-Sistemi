@@ -39,7 +39,8 @@ Yeni oturumda sırayla oku: bu dosya → `docs/STATUS.md` → `docs/PLAN.md` →
 
 - Ücretli model çağrıları varsayılan olarak kapalıdır. Canlı test öncesi planlanan örnek sayısını ve yaklaşık ücreti göster, kullanıcıdan toplam harcama sınırını al; sınır içinde her istek için yeniden sorma. Sınırı aşacak iş veya yeni ücretli hizmet için yeniden konuş.
 - API anahtarını sohbete veya repoya yazdırma; kullanıcıya güvenli ortam değişkeni yöntemini anlat.
-- Ücretli servis satın alma, public deploy, remote oluşturma ve `git push` ayrıca yetkilendirilmeden yapılmaz. Yerel kodlama, test ve yerel commit için tekrar izin istenmez.
+- Ücretli servis satın alma, public deploy ve yeni remote oluşturma ayrıca yetkilendirilmeden yapılmaz. Yerel kodlama, test ve yerel commit için tekrar izin istenmez.
+- Uzak depo: `origin` = https://github.com/EmirhanFirat/Mobil-Servis-Sistemi.git. Kullanıcı (2026-10-01) commitlerin bu depoya adım adım gönderilmesini istedi: anlamlı bir commit atıldıktan sonra `git push origin main`. Başka remote/dal, force push ve geçmiş yeniden yazma kullanıcı istemeden yapılmaz. Push'tan önce uzak `main`'in yerelin atası olduğunu doğrula (`git fetch`); değilse dur ve bildir.
 - Git kimliği tanımlı değilse ad/e-posta uydurma, global git ayarını değiştirme.
 
 ## Git ve commit kuralları
@@ -53,7 +54,7 @@ Yeni oturumda sırayla oku: bu dosya → `docs/STATUS.md` → `docs/PLAN.md` →
 - Mesajlar sade, doğal Türkçe olsun. `feat:`/`fix:` önekleri, emoji, reklam dili, "çeşitli iyileştirmeler", "update", "WIP" yok. Biçim: kısa somut başlık cümlesi; boş satır; ne değiştiğini ve nedenini anlatan 1–3 cümle (kullanıcının göreceği fark veya çözülen sorun; önemliyse çalıştırılan testin sonucu; çalıştırılmayan test yazılmaz).
 - Çok satırlı mesajı güvenli bir geçici dosyada hazırlayıp `git commit --file` ile kullan; kabuğun özel karakterleri çalıştırmasına yol açan komut üretme.
 - İş bitiminde kısa SHA ve commit başlığını bildir. Commit atılamadıysa atılmış gibi davranma; nedenini ve bekleyen dosyaları söyle.
-- Kullanıcı istemeden `push`, force push, `reset --hard`, geçmiş yeniden yazma veya `amend` yapma. Kullanıcının commitlerini değiştirme. Hook/imza hatalarını `--no-verify` veya güvenlik ayarı değişikliğiyle atlama; nedenini çöz veya bildir.
+- Kullanıcı istemeden force push, `reset --hard`, geçmiş yeniden yazma veya `amend` yapma (push için yukarıdaki `origin` kuralı geçerli). Kullanıcının commitlerini değiştirme. Hook/imza hatalarını `--no-verify` veya güvenlik ayarı değişikliğiyle atlama; nedenini çöz veya bildir.
 - Commit geçmişi gerçek geliştirme akışını yansıtsın; geriye dönük tarih veya yapılmamış işi anlatan mesaj yok.
 
 ## Oturum devamlılığı

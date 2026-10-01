@@ -26,7 +26,7 @@ Son güncelleme: 2026-10-01. Aşama: **0 tamamlandı**, sıradaki **Aşama 1**.
 
 - Testlerde Starlette `httpx` kullanımından kalkma uyarısı veriyor (bkz. DECISIONS D7). `httpx2` kullanıcı onayını bekliyor; şimdilik `httpx` kilitli.
 - Bağımlılık kilidi Windows'ta üretildi; deploy aşamasında hedef platformda yeniden üretilmeli (DECISIONS D4).
-- `git push` ve remote yapılmadı; depo yalnızca yerel.
+- Uzak depo `origin` (GitHub) bağlı. GitHub'ın oluşturduğu `Initial commit` üzerine yerel commit yeniden oturtuldu ve `main` zorlamadan gönderildi. Commit e-postası `emirhanfirat44@gmail.com`; GitHub hesabında doğrulanmış değilse commitler profile bağlanmaz.
 
 ## Sıradaki somut adım
 
