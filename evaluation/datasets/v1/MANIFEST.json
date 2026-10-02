@@ -1,0 +1,51 @@
+{
+  "version": "v1",
+  "created": "2026-10-02",
+  "source": "synthetic",
+  "description": "Yazar tarafından yazılmış 54 sentetik Türkçe kampüs/yurt bakım talebi (18 olay grubu x 3 yazım). Gerçek kullanımda başarı kanıtı değildir.",
+  "label_status": "single_annotator_unreviewed",
+  "priority_labels_human_reviewed": false,
+  "evaluated_missing_info_labels": [
+    "location",
+    "detail"
+  ],
+  "samples_file": "samples.jsonl",
+  "samples_sha256": "297a1dddf2347be22069c3779ee7d76521e3aeec2d8e1e3f73abf7f543d29500",
+  "total_samples": 54,
+  "splits": {
+    "dev": {
+      "samples": 21,
+      "groups": [
+        "G01",
+        "G03",
+        "G05",
+        "G07",
+        "G08",
+        "G10",
+        "G17"
+      ]
+    },
+    "test": {
+      "samples": 18,
+      "groups": [
+        "G02",
+        "G04",
+        "G09",
+        "G11",
+        "G14",
+        "G15"
+      ]
+    },
+    "val": {
+      "samples": 15,
+      "groups": [
+        "G06",
+        "G12",
+        "G13",
+        "G16",
+        "G18"
+      ]
+    }
+  },
+  "labeling_guide": "evaluation/LABELING_GUIDE.md"
+}

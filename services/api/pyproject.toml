@@ -18,6 +18,8 @@ select = ["E", "F", "I", "B", "UP"]
 "tests/**" = ["E501"]
 # Sağlayıcıya giden soru metinleri veridir; satır bölmek içeriği ve özetini bozmadan okunaksız yapar.
 "app/decision/jev_questions.py" = ["E501"]
+# Markdown tablo satırları bölünemez.
+"app/evaluation/report.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 # Yerel "alembic/" klasörü (migration'lar) paket adıyla çakıştığı için açıkça belirtilir.
