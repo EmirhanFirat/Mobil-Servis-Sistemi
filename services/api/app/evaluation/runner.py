@@ -6,6 +6,14 @@ Adil karşılaştırma ilkeleri:
 - Tek istek gecikmesi ölçülür (eşzamanlılık 1); throughput ile karıştırılmaz.
 - Test bölümü yalnızca `final=True` ile çalıştırılır (ayar yaparken test kümesine bakılmasın).
 - Her çalıştırma bir yeniden üretilebilirlik kaydı (run.json) bırakır.
+
+Gerçek (ücretli) stratejiler `LIVE_STRATEGY_BUILDERS` içindedir ve varsayılan listede YOKTUR:
+yalnızca açıkça istenirse, pozitif bir toplam harcama sınırıyla (`max_cost_usd`), ücretli çağrılar
+açık ve anahtarlar tanımlıysa çalışır. Sınır örnek sınırında denetlenir: bir sonraki örneğin
+(şimdiye dek görülen en pahalı örnek kadar) ücreti sınırı aşacaksa durulur; böylece tüm stratejiler
+aynı örnekleri tamamlamış olur ve aşım yalnızca beklenenden pahalı bir örnekle (ör. çok retry)
+olabilir. Maliyeti bilinemeyen bir çağrı (kullanım bildirilmedi) harcama sınırını boşa çıkaracağı
+için çalıştırmayı durdurur.
 """
 
 import json
@@ -16,9 +24,12 @@ import time
 from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
+from app.config import Settings, get_settings
 from app.decision.contract import DecisionUnavailable, StrategyName
+from app.decision.factory import anthropic_provider_from_settings, jev_provider_from_settings
 from app.decision.mock import MockProvider
 from app.decision.pricing import PRICES
 from app.decision.retry import DEFAULT_RETRY
@@ -34,7 +45,7 @@ from app.evaluation.dataset import (
 )
 from app.evaluation.serialize import call_to_dict, decision_to_dict
 
-# Canlı (gerçek sağlayıcı) stratejiler henüz kayıtlı değildir; yalnızca kurallı taban ve mock'lar.
+# Varsayılan stratejiler: kurallı taban ve mock'lar. Ağ isteği yapmazlar, ücretsizdirler.
 STRATEGY_BUILDERS: dict[str, Callable[[], object]] = {
     "rule_based": RuleBasedStrategy,
     "mock_jev": lambda: ProviderStrategy(StrategyName.JEV_ONLY, MockProvider("jev")),
@@ -42,11 +53,34 @@ STRATEGY_BUILDERS: dict[str, Callable[[], object]] = {
     "mock_hybrid": lambda: HybridStrategy(MockProvider("jev"), MockProvider("llm")),
 }
 
+# Gerçek, ÜCRETLİ stratejiler. Ayarlardan kurulur; ücretli çağrılar kapalıysa veya anahtar yoksa
+# kurulamaz (factory.py). Hibrit eşikleri başlangıç değerleridir; doğrulama (val) kümesinde
+# ayarlanır ve run.json'a yazılır.
+LIVE_STRATEGY_BUILDERS: dict[str, Callable[[Settings], object]] = {
+    "jev_only": lambda s: ProviderStrategy(StrategyName.JEV_ONLY, jev_provider_from_settings(s)),
+    "llm_only": lambda s: ProviderStrategy(
+        StrategyName.LLM_ONLY, anthropic_provider_from_settings(s)
+    ),
+    "hybrid": lambda s: HybridStrategy(
+        jev_provider_from_settings(s), anthropic_provider_from_settings(s)
+    ),
+}
+
+# Harcama takibinde, maliyeti hesaplanamazsa "bilinmeyen maliyet" sayılan çağrı durumları: model
+# yanıtı alındı (başarılı veya şemaya uymayan 200 yanıtı), dolayısıyla ücretlendirilmiş olabilir.
+# Ağ/HTTP hata denemelerinde (zaman aşımı, 5xx, 429) sunucu tarafı ücret bilinemez ve takibe
+# girmez; bunlar raporda yine "bilinmiyor" olarak görünür.
+_BILLABLE_STATUSES = frozenset({"ok", "schema_error"})
+
 
 class TestSplitGuard(RuntimeError):
     """Test bölümü nihai olmayan bir çalıştırmada istendi."""
 
     __test__ = False  # pytest bunu test sınıfı sanmasın
+
+
+class LiveRunGuard(RuntimeError):
+    """Gerçek (ücretli) strateji, zorunlu harcama sınırı olmadan istendi."""
 
 
 def describe_strategy(name: str, strategy: object) -> dict:
@@ -62,6 +96,8 @@ def describe_strategy(name: str, strategy: object) -> dict:
             model=p.model,
             prompt_version=p.prompt_version,
         )
+        if hasattr(p, "temperature"):
+            info["temperature"] = p.temperature
     elif isinstance(strategy, HybridStrategy):
         info.update(
             kind="hybrid",
@@ -78,6 +114,8 @@ def describe_strategy(name: str, strategy: object) -> dict:
             thresholds={q.value: v for q, v in strategy.thresholds.jev_min_confidence.items()},
             llm_min_self_reported=strategy.thresholds.llm_min_self_reported,
         )
+        if hasattr(strategy.llm, "temperature"):
+            info["llm"]["temperature"] = strategy.llm.temperature
     return info
 
 
@@ -102,6 +140,31 @@ def git_state(cwd: Path | None = None) -> dict:
     }
 
 
+def _spend(prediction: dict) -> tuple[Decimal, int]:
+    """(bilinen ücret, maliyeti hesaplanamayan ücretlendirilebilir çağrı sayısı)."""
+    known = Decimal(0)
+    unknown = 0
+    for call in prediction.get("calls", []):
+        if call["cost_usd"] is not None:
+            known += Decimal(call["cost_usd"])
+        elif call["status"] in _BILLABLE_STATUSES:
+            unknown += 1
+    return known, unknown
+
+
+def _close(strategy: object) -> None:
+    """Sağlayıcıların HTTP istemcilerini kapatır (mock ve kurallı tabanda close yoktur)."""
+    providers = []
+    if isinstance(strategy, ProviderStrategy):
+        providers = [strategy.provider]
+    elif isinstance(strategy, HybridStrategy):
+        providers = [strategy.jev, strategy.llm]
+    for provider in providers:
+        close = getattr(provider, "close", None)
+        if close is not None:
+            close()
+
+
 def run_evaluation(
     *,
     version: str = "v1",
@@ -110,6 +173,8 @@ def run_evaluation(
     out_root: Path | None = None,
     shuffle_seed: int | None = None,
     final: bool = False,
+    max_cost_usd: Decimal | None = None,
+    settings: Settings | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     git: Callable[[], dict] = git_state,
 ) -> Path:
@@ -121,29 +186,83 @@ def run_evaluation(
             "Test bölümü yalnızca nihai rapor için çalıştırılır (--final). Eşik ve istem ayarını "
             "doğrulama (val) bölümünde yap; test kümesine bakarak optimizasyon yapma."
         )
-    bad = set(strategy_names) - set(STRATEGY_BUILDERS)
+    bad = set(strategy_names) - set(STRATEGY_BUILDERS) - set(LIVE_STRATEGY_BUILDERS)
     if bad:
         raise ValueError(f"Bilinmeyen strateji: {sorted(bad)}")
+    live = any(name in LIVE_STRATEGY_BUILDERS for name in strategy_names)
+    if live and (max_cost_usd is None or max_cost_usd <= 0):
+        raise LiveRunGuard(
+            "Gerçek (ücretli) strateji için pozitif bir toplam harcama sınırı zorunlu "
+            "(--max-cost-usd). Önce `plan` komutuyla yaklaşık ücreti gör."
+        )
+    if max_cost_usd is not None and max_cost_usd <= 0:
+        raise ValueError("Harcama sınırı pozitif olmalı.")
 
     samples = [s for s in load_samples(version) if s.split in splits]
     if shuffle_seed is not None:
         random.Random(shuffle_seed).shuffle(samples)
-    strategies = {name: STRATEGY_BUILDERS[name]() for name in strategy_names}
+    # Stratejiler çıktı klasörü açılmadan KURULUR: ücretli çağrılar kapalıysa veya anahtar yoksa
+    # hiçbir şey yazılmadan açık hata alınır.
+    live_settings = (settings or get_settings()) if live else None
+    strategies: dict[str, object] = {}
+    for name in strategy_names:
+        if name in LIVE_STRATEGY_BUILDERS:
+            strategies[name] = LIVE_STRATEGY_BUILDERS[name](live_settings)
+        else:
+            strategies[name] = STRATEGY_BUILDERS[name]()
 
     started = now()
     run_id = f"{started.strftime('%Y%m%dT%H%M%SZ')}-{version}-{'+'.join(splits)}"
     out_dir = (out_root or repo_root() / "evaluation" / "runs") / run_id
-    out_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        out_dir.mkdir(parents=True, exist_ok=False)
+    except BaseException:
+        for strategy in strategies.values():
+            _close(strategy)
+        raise
 
     names = list(strategies)
-    with (out_dir / "predictions.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
-        for index, sample in enumerate(samples):
-            # Rotasyon: her örnekte başlangıç stratejisi değişir (sıra etkisini azaltır).
-            rotation = names[index % len(names) :] + names[: index % len(names)]
-            for name in rotation:
-                handle.write(
-                    json.dumps(_predict(name, strategies[name], sample), ensure_ascii=False) + "\n"
-                )
+    spent = Decimal(0)
+    unknown_calls = 0
+    max_sample_cost = Decimal(0)
+    completed = 0
+    stopped: dict | None = None
+    failure: Exception | None = None
+    try:
+        with (out_dir / "predictions.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
+            for index, sample in enumerate(samples):
+                if live:
+                    reason = None
+                    if unknown_calls:
+                        reason = "unknown_cost"
+                    elif max_cost_usd is not None and spent + max_sample_cost > max_cost_usd:
+                        reason = "budget"
+                    if reason:
+                        stopped = {"reason": reason}
+                        break
+                # Rotasyon: her örnekte başlangıç stratejisi değişir (sıra etkisini azaltır).
+                rotation = names[index % len(names) :] + names[: index % len(names)]
+                sample_cost = Decimal(0)
+                for name in rotation:
+                    prediction = _predict(name, strategies[name], sample)
+                    handle.write(json.dumps(prediction, ensure_ascii=False) + "\n")
+                    known, unknown = _spend(prediction)
+                    spent += known
+                    sample_cost += known
+                    unknown_calls += unknown
+                handle.flush()  # kesintide o ana dek olan tahminler diskte kalır
+                max_sample_cost = max(max_sample_cost, sample_cost)
+                completed += 1
+    except KeyboardInterrupt:
+        stopped = {"reason": "interrupted"}
+    except Exception as exc:  # kaydı yine de yaz; sonra yeniden fırlat
+        stopped = {"reason": "error", "error": type(exc).__name__}
+        failure = exc
+    finally:
+        for strategy in strategies.values():
+            _close(strategy)
+    if stopped:
+        stopped.update(samples_completed=completed, samples_planned=len(samples))
 
     manifest = load_manifest(version)
     record = {
@@ -156,6 +275,7 @@ def run_evaluation(
             "manifest_sha256": manifest.get("samples_sha256"),
             "splits_used": list(splits),
             "n_samples": len(samples),
+            "n_samples_completed": completed,
             "source": manifest.get("source"),
             "label_status": manifest.get("label_status"),
         },
@@ -168,6 +288,13 @@ def run_evaluation(
             "strategy_order": "her örnekte döndürülür (rotasyon)",
             "final": final,
         },
+        "budget": {
+            "live": live,
+            "max_cost_usd": None if max_cost_usd is None else str(max_cost_usd),
+            "spent_known_usd": str(spent),
+            "billable_calls_with_unknown_cost": unknown_calls,
+        },
+        "stopped_early": stopped,
         "prices": [
             {
                 "provider": e.provider,
@@ -184,6 +311,8 @@ def run_evaluation(
     (out_dir / "run.json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
+    if failure is not None:
+        raise failure
     return out_dir
 
 

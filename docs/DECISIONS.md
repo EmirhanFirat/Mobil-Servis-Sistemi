@@ -110,6 +110,10 @@ Resmî SDK yerine ham HTTP (D22 ile aynı gerekçe): `anthropic 1.11.0` `httpx2`
 
 Ortak ham-HTTP yardımcıları (`http_common.py`: Retry-After, token okuma, durum eşleme, şema denetimi) Jev ve Anthropic adaptörlerince paylaşılır; 402 (faturalandırma) kimlik/hesap hatası, 504 zaman aşımı sayılır (yeniden denemesi sırasıyla yok/var).
 
+## D26 — Gerçek stratejiler yalnızca zorunlu harcama sınırıyla çalışır (2026-10-02)
+
+`jev_only`, `llm_only` ve `hybrid` değerlendirme çalıştırıcısına kaydedildi ama varsayılan listede değildir; `--max-cost-usd` (pozitif) olmadan reddedilir, ücretli çağrılar kapalıysa veya anahtar yoksa strateji kurulamaz ve çıktı klasörü bile açılmaz. Sınır **örnek sınırında** denetlenir: bir sonraki örneğin (şimdiye dek görülen en pahalı örnek kadar) ücreti sınırı aşacaksa durulur; böylece tüm stratejiler aynı örnekleri tamamlar (adil karşılaştırma) ve aşım en çok bir örneğin ücreti kadardır (ilk örnek her zaman çalışır). Model yanıtı alınıp maliyeti hesaplanamayan çağrı (kullanım bildirilmedi) sınırı garanti edilemez kıldığı için çalıştırmayı durdurur; şemaya uymayan 200 yanıtı ücretlendirilir ve sayılır; ağ/HTTP hata denemelerinin ücreti bilinemediği için takibe girmez ama raporda "bilinmiyor" görünür. Yarıda kalan çalıştırma (sınır, Ctrl+C, hata) `run.json`'a durma nedeniyle ve harcamayla yazılır, raporda uyarıyla gösterilir ve yalnızca tüm stratejilerin tamamladığı örnekleri sayar. `plan` komutu ağ isteği yapmadan, açık varsayımlarla yaklaşık ücreti gösterir (tahmindir; sınır gerçek ücretlere göre uygulanır).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

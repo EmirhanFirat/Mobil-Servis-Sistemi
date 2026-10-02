@@ -2,7 +2,7 @@
 
 Dört stratejinin (`rule_based`, `llm_only`, `jev_only`, `hybrid`) aynı Türkçe servis taleplerinde doğruluk, süre ve maliyetini karşılaştırmak için. **Bu klasör veri ve belge içerir; kod `services/api/app/evaluation/` altındadır.**
 
-> **Durum (2026-10-02):** altyapı hazır ve mock sağlayıcılarla doğrulandı. **Gerçek Jev veya LLM ile ölçüm henüz yapılmadı**; hiçbir sonuç gerçek model ölçümü olarak sunulmamalıdır. Mock sonuçları raporlarda açıkça işaretlenir.
+> **Durum (2026-10-02):** altyapı hazır ve mock sağlayıcılarla doğrulandı; gerçek stratejiler harcama sınırıyla çalıştırılabilir durumda (sahte HTTP ile test edildi). **Gerçek Jev veya LLM ile ölçüm henüz yapılmadı**; hiçbir sonuç gerçek model ölçümü olarak sunulmamalıdır. Mock sonuçları raporlarda açıkça işaretlenir.
 
 ## İçerik
 
@@ -27,7 +27,26 @@ Dört stratejinin (`rule_based`, `llm_only`, `jev_only`, `hybrid`) aynı Türkç
 
 Seçenekler: `--strategies rule_based,mock_jev,...`, `--shuffle-seed N`, `--out <klasör>`. Test bölümü yalnızca nihai rapor içindir: `--splits test --final` gerekir; bayrak olmadan çalıştırma reddedilir (ayarları test sonucuna bakarak değiştirmemek için).
 
-Kayıtlı stratejiler şimdilik: `rule_based` (gerçek taban) ve `mock_jev`, `mock_llm`, `mock_hybrid` (**mock**). Gerçek sağlayıcılı stratejiler Aşama 3'te, bütçe onayı ve anahtarla eklenecek.
+Varsayılan stratejiler (ücretsiz, ağ isteği yok): `rule_based` (gerçek taban) ve `mock_jev`, `mock_llm`, `mock_hybrid` (**mock**).
+
+## Gerçek (ücretli) çalıştırma
+
+Gerçek stratejiler `jev_only`, `llm_only` (Claude Haiku 4.5) ve `hybrid` **varsayılan listede yoktur**; yalnızca `--strategies` ile açıkça istenir ve şunların hepsi gerekir:
+
+1. **Toplam harcama sınırı:** `--max-cost-usd <tutar>` (pozitif; yoksa komut reddedilir, hiçbir şey kurulmaz veya yazılmaz).
+2. **Ücretli çağrılar açık** ve **anahtarlar tanımlı**: yalnızca o oturumun ortam değişkenleri olarak (PowerShell: `$env:TALEPAKIS_PAID_MODEL_CALLS_ENABLED = "true"`, `$env:TALEPAKIS_JEV_API_KEY = "..."`, `$env:TALEPAKIS_ANTHROPIC_API_KEY = "..."`). Anahtarı dosyaya, depoya veya sohbete yazma. Standart `ANTHROPIC_API_KEY` bilerek okunmaz.
+
+```powershell
+# Önce yaklaşık ücreti gör (ağ isteği yapmaz, anahtar gerekmez):
+.\.venv\Scripts\python.exe -m app.evaluation plan --splits dev,val
+
+# Sonra, sınırı kendin koyarak çalıştır:
+.\.venv\Scripts\python.exe -m app.evaluation run --splits dev,val --strategies jev_only,llm_only,hybrid --max-cost-usd 1.00
+```
+
+Sınır nasıl uygulanır: örnek sınırında denetlenir; bir sonraki örneğin (şimdiye dek görülen en pahalı örnek kadar) ücreti sınırı aşacaksa durulur. Böylece tüm stratejiler aynı örnekleri tamamlamış olur ve aşım yalnızca beklenenden pahalı bir örnekle (ör. çok retry) olabilir; en çok bir örneğin ücreti kadardır. Maliyeti hesaplanamayan bir model yanıtı (kullanım bildirilmedi) sınırı garanti edilemez kıldığı için çalıştırmayı durdurur. Ağ/HTTP hata denemelerinin (zaman aşımı, 5xx, 429) sunucu tarafı ücreti bilinemez; takibe girmez ama raporda "bilinmiyor" olarak görünür. Durma nedeni, tamamlanan örnek sayısı ve toplam bilinen harcama `run.json`'a ve rapora yazılır; yarıda kalan çalıştırma raporda açıkça uyarılır ve yalnızca tüm stratejilerin tamamladığı örnekleri sayar. Ctrl+C ve beklenmeyen hata da kayıt bırakır.
+
+`plan` çıktısı bir **tahmindir**, ölçüm değildir (girdi token'ı gövde uzunluğunun 1/3'ü, LLM çıktısı tipik 160 token); gerçek ücret yanıtlardaki kullanımdan hesaplanır ve sınır ona göre uygulanır.
 
 ## Çalıştırma başına kaydedilenler
 

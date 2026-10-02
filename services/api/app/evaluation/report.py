@@ -24,6 +24,15 @@ MOCK_BANNER = (
     "`rule_based` ise gerçek bir tabandır (model çağrısı yapmaz)."
 )
 
+STOP_REASONS = {
+    "budget": "toplam harcama sınırına ulaşıldı",
+    "unknown_cost": (
+        "maliyeti hesaplanamayan bir çağrı çıktı; harcama sınırı garanti edilemediği için durduruldu"
+    ),
+    "interrupted": "çalıştırma elle kesildi",
+    "error": "beklenmeyen bir hata oluştu",
+}
+
 LIMITATIONS = """\
 ## Sınırlamalar ve okuma notları
 
@@ -223,10 +232,29 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
     any_mock = any(p.is_mock for p in predictions) or any(
         s.get("is_mock") for s in run["strategies"]
     )
+    stopped = run.get("stopped_early")
+    budget = run.get("budget") or {}
+
+    # Karşılaştırma adil kalsın: yalnızca TÜM stratejilerin tamamladığı örnekler sayılır (kesinti
+    # bir örneğin ortasında olduysa o örnek dışarıda bırakılır).
+    per_sample: dict[str, int] = {}
+    for p in predictions:
+        per_sample[p.sample_id] = per_sample.get(p.sample_id, 0) + 1
+    complete = {sid for sid, count in per_sample.items() if count >= len(strategies)}
+    dropped = len(per_sample) - len(complete)
+    predictions = [p for p in predictions if p.sample_id in complete]
 
     lines = [f"# Değerlendirme raporu — `{run['run_id']}`", ""]
     if any_mock:
         lines += [MOCK_BANNER, ""]
+    if stopped:
+        lines += [
+            f"> **UYARI — ÇALIŞTIRMA YARIDA KALDI:** {STOP_REASONS.get(stopped['reason'], stopped['reason'])}. "
+            f"{stopped.get('samples_completed', len(complete))}/{stopped.get('samples_planned', '?')} "
+            "örnek tamamlandı; sonuçlar yalnızca tamamlanan örnekleri kapsar ve tam bir çalıştırmayla "
+            "kıyaslanmamalıdır.",
+            "",
+        ]
     lines += [
         "## Çalıştırma kaydı",
         "",
@@ -239,8 +267,22 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
         f"- Eşzamanlılık {run['config']['concurrency']}, önbellek: {run['config']['cache']}, "
         f"yeniden deneme: en çok {run['config']['retry']['max_attempts']} deneme",
         "- Stratejiler: " + ", ".join(f"`{s['name']}`" for s in run["strategies"]),
-        "",
     ]
+    if budget.get("live"):
+        lines.append(
+            f"- Harcama (gerçek çağrılar): bilinen toplam {usd(Decimal(budget['spent_known_usd']))} "
+            f"USD, sınır {usd(Decimal(budget['max_cost_usd']))} USD"
+            + (
+                f"; **{budget['billable_calls_with_unknown_cost']} çağrının maliyeti bilinmiyor**"
+                if budget.get("billable_calls_with_unknown_cost")
+                else ""
+            )
+        )
+    if dropped:
+        lines.append(
+            f"- Yarım kalan {dropped} örnek (tüm stratejiler tamamlamadığı için) rapor dışı bırakıldı."
+        )
+    lines.append("")
     current = dataset_sha256(version)
     if current != run["dataset"]["sha256"]:
         lines += [
@@ -256,7 +298,12 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
         lines += [_split_section(split, split_metrics), ""]
 
     lines += [LIMITATIONS]
-    return "\n".join(lines) + "\n", {"run_id": run["run_id"], "splits": all_metrics}
+    return "\n".join(lines) + "\n", {
+        "run_id": run["run_id"],
+        "stopped_early": stopped,
+        "budget": budget,
+        "splits": all_metrics,
+    }
 
 
 def write_report(run_dir: Path) -> Path:
