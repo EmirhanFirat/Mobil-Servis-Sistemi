@@ -15,6 +15,7 @@ from app.decision.budget import (
 )
 from app.decision.contract import (
     ALL_QUESTIONS,
+    DECISION_QUESTIONS,
     BudgetExhausted,
     CallStatus,
     Question,
@@ -107,11 +108,25 @@ class TestMaxCallCost:
         only = ProviderStrategy(S, llm, RetryPolicy(max_attempts=3))
         hybrid = HybridStrategy(jev, llm, HybridThresholds(), RetryPolicy(max_attempts=2))
 
+        decision_questions = tuple(q for q in ALL_QUESTIONS if q in DECISION_QUESTIONS)
         assert worst_decision_cost(only, DATA) == 3 * max_call_cost(llm, DATA)
+        # Hibritin LLM aşamasına yalnızca karar soruları gidebilir; üst sınır buna göre hesaplanır.
         assert worst_decision_cost(hybrid, DATA) == 2 * (
+            max_call_cost(jev, DATA) + max_call_cost(llm, DATA, decision_questions)
+        )
+        assert worst_decision_cost(hybrid, DATA) < 2 * (
             max_call_cost(jev, DATA) + max_call_cost(llm, DATA)
         )
         assert worst_decision_cost(RuleBasedStrategy(), DATA) == 0
+
+    def test_hibritte_hicbir_soru_llm_i_tetikleyemiyorsa_en_kotu_durum_yalniz_jevdir(self):
+        llm, _ = llm_provider(lambda r: llm_ok_response())
+        jev, _ = jev_provider(lambda r: jev_ok_response())
+        hybrid = HybridStrategy(
+            jev, llm, HybridThresholds(escalate_on=frozenset()), RetryPolicy(max_attempts=2)
+        )
+
+        assert worst_decision_cost(hybrid, DATA) == 2 * max_call_cost(jev, DATA)
 
     def test_sarmalanmis_saglayicida_da_ayni_sinir_hesaplanir(self):
         llm, _ = llm_provider(lambda r: llm_ok_response())
@@ -315,9 +330,11 @@ class TestRetryAndHybridIntegration:
         guard = BudgetGuard(Decimal("1"))
         jev = BudgetedProvider(jev_inner, guard)
         llm = BudgetedProvider(llm_inner, guard)
-        # Jev'e yeter ama LLM aşamasının rezervasyonuna yetmez.
-        guard.cap = max_call_cost(jev, DATA) + max_call_cost(llm, DATA) / 2
-        thresholds = HybridThresholds(dict.fromkeys(ALL_QUESTIONS, 0.99))  # hepsi LLM'e gider
+        # Jev'e yeter ama LLM aşamasının rezervasyonuna (yalnızca karar soruları) yetmez.
+        decision_questions = tuple(q for q in ALL_QUESTIONS if q in DECISION_QUESTIONS)
+        guard.cap = max_call_cost(jev, DATA) + max_call_cost(llm, DATA, decision_questions) / 2
+        # Tüm eşikler yüksek: Jev'in güvenmediği her karar sorusu LLM'e gider.
+        thresholds = HybridThresholds(dict.fromkeys(ALL_QUESTIONS, 0.99))
         strategy = HybridStrategy(jev, llm, thresholds, NO_WAIT, lambda s: None)
 
         with pytest.raises(BudgetExhausted) as caught:

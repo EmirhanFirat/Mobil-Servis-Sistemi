@@ -19,7 +19,9 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.decision.budget_ledger import BudgetLedger, LedgerError
+from app.decision.contract import ALL_QUESTIONS, Question
 from app.decision.factory import MissingApiKey, PaidCallsDisabled
+from app.decision.strategies import HybridThresholds
 from app.evaluation.detail import build_detail
 from app.evaluation.plan import PLANNABLE, estimate_plan, format_plan
 from app.evaluation.preflight import build_preflight
@@ -47,6 +49,23 @@ def _usd(text: str) -> Decimal:
 
 def _csv(text: str) -> tuple[str, ...]:
     return tuple(s for s in text.split(",") if s)
+
+
+def _threshold(text: str) -> tuple[Question, float]:
+    """`soru=değer` (ör. missing_location=0.7): tek bir sorunun Jev güven eşiği."""
+    name, _, value = text.partition("=")
+    try:
+        question = Question(name.strip())
+    except ValueError:
+        valid = ", ".join(q.value for q in ALL_QUESTIONS)
+        raise argparse.ArgumentTypeError(f"bilinmeyen soru {name!r}; geçerli: {valid}") from None
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"eşik sayı olmalı: {text!r}") from None
+    if not 0.0 <= number <= 1.0:  # nan da bu aralığın dışında kalır
+        raise argparse.ArgumentTypeError("eşik 0 ile 1 arasında olmalı")
+    return question, number
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,6 +99,16 @@ def main(argv: list[str] | None = None) -> int:
         "çalıştırmaların toplamıdır ve süreçler arası diskte tutulur",
     )
     run.add_argument("--budget-dir", type=Path, default=None, help=argparse.SUPPRESS)
+    run.add_argument(
+        "--hybrid-threshold",
+        type=_threshold,
+        action="append",
+        default=[],
+        metavar="SORU=DEĞER",
+        help="Hibritte tek bir sorunun Jev güven eşiği (tekrarlanabilir). Verilmeyen sorular "
+        "varsayılan (provizyonel) eşikte kalır. Eşikler doğrulama (val) bölümünde seçilir; "
+        "run.json'a yazılır",
+    )
 
     plan = sub.add_parser(
         "plan", help="Gerçek stratejiler için yaklaşık ücreti göster (ağ isteği yapmaz)"
@@ -169,6 +198,11 @@ def main(argv: list[str] | None = None) -> int:
                 budget_id=args.budget_id,
                 budget_dir=args.budget_dir,
                 limit=args.limit,
+                hybrid_thresholds=(
+                    HybridThresholds().with_confidence(dict(args.hybrid_threshold))
+                    if args.hybrid_threshold
+                    else None
+                ),
             )
             print(f"Çalıştırma kaydedildi: {out}")
             print(f'Rapor için: python -m app.evaluation report --run "{out}"')

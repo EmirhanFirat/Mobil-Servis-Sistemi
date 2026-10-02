@@ -41,8 +41,10 @@ class TestHybridFlow:
         assert len(decision.calls) == 1
         assert decision.category is Category.PLUMBING
 
-    def test_yalniz_guvenilmeyen_sorular_llm_e_gider(self):
-        # Jev kategori ve önceliğe güvenir (eşik 0.3), diğer sorulara (eşik 1.01) güvenmez.
+    def test_yalniz_guvenilmeyen_karar_sorulari_llm_e_gider(self):
+        # Jev kategori ve önceliğe güvenir (eşik 0.3); diğer tüm sorulara (eşik 1.01) güvenmez.
+        # Güvenilmeyenlerden yalnızca KARAR soruları (konum, açıklama) LLM'e gider; iletişim ve zaman
+        # bilgi amaçlıdır, belirsiz olsalar da ücretli çağrıya dahil edilmez.
         thresholds = HybridThresholds(
             {
                 **dict.fromkeys(ALL_QUESTIONS, 1.01),
@@ -56,12 +58,7 @@ class TestHybridFlow:
 
         assert llm.call_count == 1
         llm_call = [c for c in decision.calls if c.provider == "mock-llm"][0]
-        assert set(llm_call.questions) == {
-            Question.MISSING_LOCATION,
-            Question.MISSING_DETAIL,
-            Question.MISSING_CONTACT,
-            Question.MISSING_TIMING,
-        }
+        assert set(llm_call.questions) == {Question.MISSING_LOCATION, Question.MISSING_DETAIL}
         assert decision.providers == ("mock-jev", "mock-llm")
 
     def test_jevin_reddedilen_yargisi_kayitta_kalir_ama_karara_girmez(self):

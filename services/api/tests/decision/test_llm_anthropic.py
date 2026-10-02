@@ -582,28 +582,29 @@ class TestStrategies:
     def test_hibrit_gercek_jev_ve_gercek_llm_adaptoruyle_yalniz_guvenilmeyeni_llm_e_sorar(self):
         jev, _ = jev_provider(lambda r: jev_ok_response())
         llm, seen = provider(
-            lambda r: ok_response({"missing_contact": {"answer": False, "confidence": 0.9}})
+            lambda r: ok_response({"missing_detail": {"answer": True, "confidence": 0.9}})
         )
         thresholds = HybridThresholds(
             {
                 **dict.fromkeys(ALL_QUESTIONS, 0.0),
-                Question.MISSING_CONTACT: 0.9,  # Jev'in kenar payı 0,6 → güvenilmez
+                Question.MISSING_DETAIL: 0.95,  # Jev'in kenar payı 0,90 → güvenilmez (karar sorusu)
             }
         )
 
         decision = HybridStrategy(jev, llm, thresholds, NO_WAIT, lambda s: None).decide(DATA)
 
         assert len(seen) == 1
-        assert list(sent(seen[0])["tools"][0]["input_schema"]["properties"]) == ["missing_contact"]
+        assert list(sent(seen[0])["tools"][0]["input_schema"]["properties"]) == ["missing_detail"]
         assert decision.providers == ("jev", "anthropic")
         assert not decision.is_mock
         assert [c.provider for c in decision.calls] == ["jev", "anthropic"]
-        contact = [j for j in decision.judgments if j.question is Question.MISSING_CONTACT]
-        assert [(j.source, j.adopted, j.answer) for j in contact] == [
-            ("jev", False, True),  # Jev'in yargısı kayıtta kalır, karara girmez
-            ("anthropic", True, False),
+        detail = [j for j in decision.judgments if j.question is Question.MISSING_DETAIL]
+        assert [(j.source, j.adopted, j.answer) for j in detail] == [
+            ("jev", False, False),  # Jev'in yargısı kayıtta kalır, karara girmez
+            ("anthropic", True, True),
         ]
-        assert decision.missing_info == ()  # LLM "eksik değil" dedi
+        assert [m.value for m in decision.missing_info] == ["detail", "contact"]
+        assert "detail_missing" in decision.review_reasons  # LLM'in cevabı karara yansıdı
         # Hibrit maliyeti tüm çağrıların toplamıdır (Jev + LLM).
         assert decision.total_cost_usd == Decimal("0.000016464") + Decimal("0.0019")
 

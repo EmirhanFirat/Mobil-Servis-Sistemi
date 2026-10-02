@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from app.decision.budget import max_call_cost
-from app.decision.contract import ALL_QUESTIONS
+from app.decision.contract import ALL_QUESTIONS, DECISION_QUESTIONS
 from app.decision.jev import JevProvider
 from app.decision.llm_anthropic import MAX_TOKENS, AnthropicProvider
 from app.decision.pricing import compute_cost
@@ -31,6 +31,9 @@ FORCED_TOOL_OVERHEAD_TOKENS = 588  # Claude Haiku 4.5, zorunlu araç çağrısı
 TYPICAL_LLM_OUTPUT_TOKENS = 160  # altı soru için kabaca; üst sınır MAX_TOKENS
 
 PLANNABLE = ("jev_only", "llm_only", "hybrid")
+
+# Hibritin LLM aşamasına yalnızca ürün kararını etkileyen sorular gidebilir (strategies.py).
+HYBRID_LLM_QUESTIONS = tuple(q for q in ALL_QUESTIONS if q in DECISION_QUESTIONS)
 
 
 @dataclass(frozen=True)
@@ -65,26 +68,35 @@ def estimate_plan(samples: list[Sample], strategy_names: tuple[str, ...]) -> Pla
     llm = AnthropicProvider("plan-only")
     attempts = DEFAULT_RETRY.max_attempts
     jev_typical = Decimal(0)
-    llm_typical = Decimal(0)
+    llm_typical = Decimal(0)  # llm_only: altı soru
+    stage_typical = Decimal(0)  # hibritin LLM aşaması: yalnızca karar soruları, bir çağrı
     jev_worst = Decimal(0)
     llm_worst = Decimal(0)
+    stage_worst = Decimal(0)
     min_cap = Decimal(0)
+    stage_output = round(TYPICAL_LLM_OUTPUT_TOKENS * len(HYBRID_LLM_QUESTIONS) / len(ALL_QUESTIONS))
     try:
         for sample in samples:
             data = sample.to_input()
             jev_in = _tokens(jev.build_request(data, ALL_QUESTIONS))
             llm_in = _tokens(llm.build_request(data, ALL_QUESTIONS)) + FORCED_TOOL_OVERHEAD_TOKENS
+            stage_in = (
+                _tokens(llm.build_request(data, HYBRID_LLM_QUESTIONS)) + FORCED_TOOL_OVERHEAD_TOKENS
+            )
             jev_typical += compute_cost(jev.price, jev_in, 0) or Decimal(0)
             llm_typical += compute_cost(llm.price, llm_in, TYPICAL_LLM_OUTPUT_TOKENS) or Decimal(0)
+            stage_typical += compute_cost(llm.price, stage_in, stage_output) or Decimal(0)
             # En kötü durum: bütçe korumasının gerçekte rezerve edeceği üst sınır × deneme hakkı.
             sample_jev = attempts * max_call_cost(jev, data)
             sample_llm = attempts * max_call_cost(llm, data)
+            sample_stage = attempts * max_call_cost(llm, data, HYBRID_LLM_QUESTIONS)
             jev_worst += sample_jev
             llm_worst += sample_llm
+            stage_worst += sample_stage
             needed = {
                 "jev_only": sample_jev,
                 "llm_only": sample_llm,
-                "hybrid": sample_jev + sample_llm,
+                "hybrid": sample_jev + sample_stage,
             }
             min_cap = max(min_cap, sum((needed[name] for name in strategy_names), Decimal(0)))
     finally:
@@ -98,14 +110,15 @@ def estimate_plan(samples: list[Sample], strategy_names: tuple[str, ...]) -> Pla
         elif name == "llm_only":
             lines.append(PlanLine(name, "1 LLM", llm_typical, llm_typical, llm_worst))
         else:
-            # Hibrit: her zaman Jev; LLM yalnızca Jev'in güvenmediği sorular için (oran bilinmiyor).
+            # Hibrit: her zaman Jev; LLM yalnızca Jev'in güvenmediği KARAR soruları için ve tek
+            # çağrıda (oran bilinmiyor: 0 ile her örnek arası).
             lines.append(
                 PlanLine(
                     name,
                     "1 Jev + 0–1 LLM",
                     jev_typical,
-                    jev_typical + llm_typical,
-                    jev_worst + llm_worst,
+                    jev_typical + stage_typical,
+                    jev_worst + stage_worst,
                 )
             )
     return PlanEstimate(
@@ -153,8 +166,10 @@ def format_plan(plan: PlanEstimate) -> str:
         "gövdesinin UTF-8 bayt sayısı (bir token en az bir bayttır) + sabit ek + pay; çıktı = "
         f"{MAX_TOKENS} token (max_tokens tavanı); her çağrı {DEFAULT_RETRY.max_attempts} deneme "
         "hakkını kullanır. Gerçek ücretten 2–3 kat büyüktür; bilerek aşırı muhafazakârdır.",
-        "- Hibritte LLM'e giden soru oranı bilinmiyor: tipik alt sınır yalnızca Jev, üst sınır tüm "
-        "sorular LLM'e gider.",
+        "- Hibritte LLM'e geçen örnek oranı bilinmiyor: tipik alt sınır yalnızca Jev, üst sınır "
+        "her örnekte tek LLM çağrısı "
+        f"({len(HYBRID_LLM_QUESTIONS)} karar sorusuyla; bilgi amaçlı sorular tek başına çağrı "
+        "başlatmaz). Gerçek oran, her çalıştırmada ölçülür.",
         "- Gerçek token sayıları ve ücret sağlayıcı yanıtından gelir ve farklı olabilir; fiyatlar "
         "docs/SAGLAYICILAR.md'deki tarihli değerlerdir (canlı öncesi yeniden doğrulanmalı).",
         "- Garanti edilemeyenler: fiyat tablosunun güncelliği, faturanın yayımlanmış fiyatla "

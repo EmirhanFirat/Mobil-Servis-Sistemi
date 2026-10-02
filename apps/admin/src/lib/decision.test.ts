@@ -9,6 +9,7 @@ import {
   decisionSource,
   jobLine,
   reasonText,
+  unresolvedQuestions,
 } from './decision'
 import type { DecisionJob, DecisionJudgment } from './types'
 
@@ -96,6 +97,50 @@ describe('inceleme nedenleri, yargılar, maliyet', () => {
     expect(reasonText('category_unclear')).toBe('Kategori belirsiz')
     expect(reasonText('safety:kivilcim')).toBe('Güvenlik terimi: kivilcim')
     expect(reasonText('yeni_neden')).toBe('yeni_neden')
+  })
+
+  it('çözülemeyen engelleyici soru nedenleri Türkçe (ham kod gösterilmez)', () => {
+    expect(reasonText('location_unknown')).toContain('Konum')
+    expect(reasonText('detail_unknown')).toContain('Açıklama')
+    expect(reasonText('location_unknown')).not.toBe('location_unknown')
+  })
+
+  it('kesin yanıtı olmayan sorular: benimsenmeyen, belirsiz ve boş yanıt çözülmüş sayılmaz', () => {
+    const all = [
+      judgment({ question: 'category', answer: 'plumbing' }),
+      judgment({ question: 'priority', answer: 'unclear' }),
+      judgment({ question: 'missing_location', answer: false, adopted: false }),
+      judgment({ question: 'missing_detail', answer: false }),
+      judgment({ question: 'missing_contact', answer: null }),
+      judgment({ question: 'missing_timing', answer: true, adopted: false }),
+    ]
+
+    // Soru sırasıyla; konum benimsenmediği için, öncelik "unclear" olduğu için, iletişim boş olduğu için.
+    expect(unresolvedQuestions(all)).toEqual([
+      'priority',
+      'missing_location',
+      'missing_contact',
+      'missing_timing',
+    ])
+  })
+
+  it('benimsenen kesin yanıt (evet de hayır da) çözülmüştür; hiç sorulmayan soru sayılmaz', () => {
+    expect(
+      unresolvedQuestions([
+        judgment({ question: 'missing_contact', answer: false }),
+        judgment({ question: 'missing_timing', answer: true }),
+      ]),
+    ).toEqual([])
+    expect(unresolvedQuestions([])).toEqual([])
+  })
+
+  it('aynı soruda benimsenmeyen Jev yargısı ve benimsenen LLM yargısı varsa çözülmüştür', () => {
+    expect(
+      unresolvedQuestions([
+        judgment({ question: 'missing_detail', answer: false, adopted: false, source: 'jev' }),
+        judgment({ question: 'missing_detail', answer: true, adopted: true, source: 'anthropic' }),
+      ]),
+    ).toEqual([])
   })
 
   it('cevaplar sözlük adlarıyla; belirsiz ve evet/hayır açık', () => {

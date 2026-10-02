@@ -148,6 +148,30 @@ Bundan sonrası: Claude Code'un belgelenmiş `attribution` ayarı (`commit` ve `
 
 Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; yerelde eski geçmiş reflog'da ve yedek bundle'dadır.
 
+## D31 — Hibrit LLM geçişi yalnızca ürün kararını etkileyen sorularla; bilgi amaçlı soru tek başına ücretli çağrı başlatmaz (2026-10-02)
+
+**Neden.** İlk gerçek bağlantı denemesinde (5 örnek) hibrit 5/5 örnekte LLM'e geçti ve her seferinde yalnızca `missing_contact` için: Jev'in türetilmiş marj güveni 0,22–0,52 idi, tüm sorulara aynı 0,6 eşiği uygulanıyordu. Bu soru v1'de etiketli değil ve kararı engellemiyor; geçişler ölçülen hiçbir sonucu değiştirmedi ama hibrit ücretinin ~%97'sini oluşturdu.
+
+**`missing_contact` ürün açısından ne işe yarıyor? (kontrol edildi, kaldırılmadı).** `User` modelinde yalnızca `username` ve `display_name` var; telefon/e-posta alanı yok. Talep formu yalnızca başlık, açıklama ve konum toplar (`TicketCreate`). Yani iletişim bilgisi **profilden gelmiyor** ve talep metninde aranması bu yüzden anlamlı. Sonuç `ticket.missing_info` etiketine yazılır, yönetici panelinde ve mobilde "İletişim bilgisi eksik" olarak görünür ve yönetici düzeltebilir (`TicketPatch.missing_info`); yani görevli/yönetici için "bu kişiye nasıl ulaşırım" bilgisi. Fakat yönlendirmeyi veya incelemeyi **değiştirmez** (`BLOCKING_MISSING` yalnızca konum ve açıklama). Karar: soru **bilgi amaçlı** olarak kalır; etiketsiz olduğu için tek başına kaldırılmadı, ama LLM geçişini tetikleyemez. Profile bir iletişim alanı eklenirse bu bilgi kesin (deterministik) olarak profilden alınmalı ve soru model akışından çıkarılmalı; `missing_timing` için de aynı mantık geçerli (başlangıç zamanı metinden başka yerden gelmez, bilgi amaçlı kalır).
+
+**Roller.** `contract.QUESTION_ROLES`: `DECISION` (kategori, öncelik, konum eksik mi, açıklama yetersiz mi: cevapları ekibi, önceliği veya otomatik yönlendirmeyi belirler) ve `INFORMATIONAL` (iletişim, başlangıç zamanı). Roller `BLOCKING_MISSING`'den **türetilir**; iki yerde ayrı tutulup birbirinden sapamaz.
+
+**Davranış (`HYBRID_ROUTING_VERSION = "hibrit-yonlendirme-v2"`).**
+- Jev yine tüm soruları tek çağrıda yanıtlar (çıktı ücretsiz; Jev istemi ve sürümü değişmez).
+- Güvenilmeyen **karar** sorusu LLM'e gider; LLM aşamasında yalnızca bu sorular sorulur. Güvenilmeyen **bilgi amaçlı** soru LLM'e gitmez, aynı çağrıya eklenmez; Jev'in cevabı kayıtta kalır ama karara girmez (`adopted=False`) ve soru **çözülmemiş** sayılır.
+- Çözülmemiş soru "eksik" ya da "eksik değil" diye sunulmaz: `missing_info`'ya girmez, yönetici panelinde "Kesin yanıt yok" satırında listelenir (`unresolved_questions`). Kural tabanlı strateji iletişim/zamanı hiç değerlendirmediği için aynı satırda görünür.
+- **Engelleyici** bir soru (konum, açıklama) kesin yanıtlanamazsa (LLM erişilemedi, çekimserlik kapısı, soru aktarılmadı) artık sessizce "eksik değil" sayılmaz: `location_unknown` / `detail_unknown` nedeniyle talep insan incelemesine gider. Kategori/öncelik belirsizliği zaten `*_unclear` ile incelemeye gidiyordu.
+- `HybridThresholds.escalate_on` bilgi amaçlı bir soruyu içeremez (`ValueError`); yapılandırmayla bile tek başına ücretli çağrı başlatılamaz.
+- `jev_only` ve `llm_only` aynen kalır: kendi cevabını olduğu gibi benimser, eşik uygulanmaz. Üç stratejinin ortak çıktı sözleşmesi (`Decision`, altı soruluk `judgments`) değişmedi.
+
+**Eşikler.** Soru bazında (`jev_min_confidence`), varsayılan 0,6 ve **provizyonel**: ilk denemenin 5 örneğine bakılarak düşürülmedi. Gerçek seçim sonraki doğrulama çalışmasında, `val` bölümünde yapılır (`--hybrid-threshold SORU=DEĞER`, `run.json`'a yazılır). Hangi soruda hangi güven sinyalinin kullanıldığı `docs/SAGLAYICILAR.md` "Güven sinyalleri" bölümünde.
+
+**Bütçe.** Rezervasyon zaten gerçek istek gövdesiyle yapılır (LLM aşaması yalnızca aktarılan soruları içerir); en kötü durum üst sınırı ve plan da LLM aşamasını yalnızca `escalate_on` sorularıyla hesaplar (`worst_decision_cost`, `plan.py`). Bilgi amaçlı belirsizlik hiç rezervasyon denemez; bütçe bitmişse `BudgetExhausted` durma sinyali aynen çalışır.
+
+**Sürümleme.** Hibritin kapsamı değiştiği için yönlendirme sürümü artırıldı ve `run.json`'a `routing_version` ile `escalate_on` yazılır. İlk denemenin kaydında (`20261002T162249Z-v1-dev`) bu alanlar yoktur ve **v1** davranışıyla (tüm sorular, tek eşik) alınmıştır; v2 ile alınan sonuçlarla doğrudan karşılaştırılmaz. Veri seti sürümü (v1) ve etiketler değişmedi; geçmiş kayıtlar geriye dönük değiştirilmedi.
+
+**Bilinen sınırlar.** (1) Bilgi amaçlı sorular için hibrit, `jev_only` ve `llm_only` ile aynı bilgiyi vermeyebilir (çözülmemiş kalır); bu sorular v1'de değerlendirilmediği için ölçümü etkilemez, ama etiketlenirse (v2) yeniden düşünülmeli. (2) Karar sorularındaki geçiş oranı henüz ölçülmedi; v2'nin gerçekten daha az çağrı yaptığı gerçek veriyle doğrulanmalıdır (yalnızca kayıtlı Jev güvenleriyle çevrimdışı yeniden oynatma yapıldı). (3) LLM aynı soruya bağlama göre farklı cevap verebiliyor; `jev_only` + `llm_only` çıktılarından eşik taramasını çevrimdışı simüle etmek yaklaşık sonuç verir, son doğrulama gerçek hibrit çalıştırmasıyla yapılır.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

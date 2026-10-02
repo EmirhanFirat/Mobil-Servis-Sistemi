@@ -44,6 +44,38 @@ MISSING_QUESTIONS: dict[Question, MissingInfo] = {
 
 ALL_QUESTIONS: tuple[Question, ...] = tuple(Question)
 
+# Eksik bilgi türlerinden hangisi otomatik ekip kuyruğunu ENGELLER (karar insan incelemesine gider).
+# Yalnızca konum ve açıklama: bunlar olmadan görevli işe başlayamaz. İletişim ve başlangıç zamanı
+# talebe etiket olarak yazılır (yönetici/görevli panelinde görünür), yönlendirmeyi değiştirmez.
+BLOCKING_MISSING = frozenset({MissingInfo.LOCATION, MissingInfo.DETAIL})
+
+
+class QuestionRole(StrEnum):
+    """Bir sorunun ÜRÜN KARARINA etkisi. Hibritin ücretli LLM aşamasını yalnızca DECISION
+    soruları tetikleyebilir: ürünün sonucunu değiştirmeyen sorudaki belirsizlik para harcatmaz."""
+
+    # Cevap talebin kategorisini/önceliğini/ekibini belirler veya otomatik yönlendirmeyi engeller.
+    DECISION = "decision"
+    # Cevap yalnızca bilgi amaçlıdır (talebin `missing_info` etiketi); yönlendirme ve inceleme
+    # kararını etkilemez.
+    INFORMATIONAL = "informational"
+
+
+def _role(question: Question) -> QuestionRole:
+    if question in (Question.CATEGORY, Question.PRIORITY):
+        return QuestionRole.DECISION
+    if MISSING_QUESTIONS[question] in BLOCKING_MISSING:
+        return QuestionRole.DECISION
+    return QuestionRole.INFORMATIONAL
+
+
+# Roller BLOCKING_MISSING'den TÜRETİLİR: iki yerde ayrı ayrı tutulup birbirinden sapamaz.
+QUESTION_ROLES: dict[Question, QuestionRole] = {q: _role(q) for q in ALL_QUESTIONS}
+DECISION_QUESTIONS: frozenset[Question] = frozenset(
+    q for q, role in QUESTION_ROLES.items() if role is QuestionRole.DECISION
+)
+INFORMATIONAL_QUESTIONS: frozenset[Question] = frozenset(ALL_QUESTIONS) - DECISION_QUESTIONS
+
 # Kapalı seçenekli sorularda her zaman bulunan "belirsiz / hiçbiri" seçeneği. Model zorla bir
 # sınıfa itilmez; belirsizlik insan incelemesine gider.
 UNCLEAR = "unclear"
@@ -103,6 +135,22 @@ class Judgment:
     @property
     def abstained(self) -> bool:
         return self.answer is None or self.answer == UNCLEAR
+
+
+def unresolved_questions(judgments: tuple[Judgment, ...] | list[Judgment]) -> tuple[Question, ...]:
+    """Karara girmiş KESİN yanıtı olmayan sorular (soru sırasıyla). Benimsenmeyen ve çekimser
+    yargılar sayılmaz. Bu sorular için "eksik değil" demek yanlıştır: bilinmiyorlar."""
+    resolved = {j.question for j in judgments if j.adopted and not j.abstained}
+    return tuple(q for q in ALL_QUESTIONS if q not in resolved)
+
+
+def probability_floor(confidence: float, n_options: int) -> float:
+    """Jev güven formülünün tersi: güveni `confidence` olan bir yanıtın en büyük olasılığı en az kaç
+    olmalı? Jev `confidence = (p_max − 1/n) / (1 − 1/n)` verir (n: seçenek sayısı); aynı eşik
+    farklı soru türlerinde farklı olasılık gerektirir (n=2: 0,80; n=4: 0,70; n=6: 0,67 için 0,6)."""
+    if n_options < 2:
+        raise ValueError("Seçenek sayısı en az 2 olmalı.")
+    return 1 / n_options + confidence * (1 - 1 / n_options)
 
 
 @dataclass(frozen=True)

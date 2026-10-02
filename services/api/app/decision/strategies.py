@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from app.decision.assemble import assemble
 from app.decision.contract import (
     ALL_QUESTIONS,
+    DECISION_QUESTIONS,
     BudgetExhausted,
     CallRecord,
     Decision,
@@ -53,29 +54,73 @@ class ProviderStrategy:
         )
 
 
+# Hibrit yönlendirme sürümü: hangi soruların ücretli LLM aşamasını tetikleyebildiği ve belirsiz
+# yanıtların nasıl ele alındığı. Değişirse deney sürümü değişir; farklı sürümlerle alınmış
+# sonuçlar doğrudan karşılaştırılmaz (run.json'a yazılır).
+#   hibrit-yonlendirme-v1  tüm sorulara aynı eşik; güvenilmeyen HER soru LLM'e giderdi (2026-10-02
+#                          ilk bağlantı denemesi; kayıtta alan yoktur).
+#   hibrit-yonlendirme-v2  yalnızca ürün kararını etkileyen sorular (DECISION_QUESTIONS) LLM'e
+#                          gider; bilgi amaçlı belirsiz yanıt LLM'e gitmez, karara alınmaz ve
+#                          "çözülmemiş" kalır.
+HYBRID_ROUTING_VERSION = "hibrit-yonlendirme-v2"
+
+# PROVİZYONEL başlangıç değeri: hiçbir veriyle ayarlanmadı (ilk deneme yalnızca 5 örnekti ve bu
+# eşiği değiştirmek için kullanılmadı). Soru türüne göre aynı güven değeri farklı olasılık demektir
+# (bkz. contract.probability_floor); gerçek seçim doğrulama (val) çalışmasında soru bazında yapılır.
+DEFAULT_JEV_MIN_CONFIDENCE = 0.6
+
+
 @dataclass(frozen=True)
 class HybridThresholds:
-    """Jev'in "yeterli güven" eşiği, soru başına. Doğrulama kümesinde ayarlanır (test kümesinde
-    değil). Varsayılanlar bilinçli olarak muhafazakârdır; ölçümle değişecektir."""
+    """Hibrit yönlendirme ayarları. Soru başına Jev eşiği ve LLM'e geçişi tetikleyebilen sorular.
+
+    Eşikler doğrulama kümesinde ayarlanır (test kümesinde değil); varsayılanlar provizyoneldir.
+    """
 
     jev_min_confidence: dict[Question, float] = field(
-        default_factory=lambda: dict.fromkeys(ALL_QUESTIONS, 0.6)
+        default_factory=lambda: dict.fromkeys(ALL_QUESTIONS, DEFAULT_JEV_MIN_CONFIDENCE)
     )
     # LLM'in kendi yazdığı güven Jev güveniyle karşılaştırılmaz; yalnızca isteğe bağlı bir
     # çekimserlik kapısıdır (None = kullanma; LLM'in "belirsiz" demesi zaten çekimserliktir).
     llm_min_self_reported: float | None = None
+    # Jev'in güvenmediği hangi soru ücretli LLM çağrısı BAŞLATABİLİR. Yalnızca ürün kararını
+    # etkileyen sorular olabilir; bilgi amaçlı bir soru (iletişim, başlangıç zamanı) tek başına
+    # ücretli çağrı başlatamaz.
+    escalate_on: frozenset[Question] = DECISION_QUESTIONS
+
+    def __post_init__(self) -> None:
+        absent = [q.value for q in ALL_QUESTIONS if q not in self.jev_min_confidence]
+        if absent:
+            raise ValueError(f"Her soru için Jev eşiği gerekir; eksik: {absent}")
+        informational = sorted(q.value for q in set(self.escalate_on) - DECISION_QUESTIONS)
+        if informational:
+            raise ValueError(
+                "Bilgi amaçlı sorular LLM'e geçişi tetikleyemez (ürün kararını etkilemiyorlar): "
+                f"{informational}"
+            )
+
+    def with_confidence(self, overrides: dict[Question, float]) -> "HybridThresholds":
+        """Yalnızca verilen sorular için Jev eşiğini değiştirir; diğerleri aynen kalır."""
+        merged = {**self.jev_min_confidence, **overrides}
+        return replace(self, jev_min_confidence=merged)
 
 
 class HybridStrategy:
-    """Jev yeterince güvenemediği sorularda LLM'e, çözülemeyenlerde insana aktarır.
+    """Jev yeterince güvenemediği KARAR sorularında LLM'e, çözülemeyenlerde insana aktarır.
+
+    Jev her zaman tüm soruları (ücretsiz çıktı, tek çağrı) yanıtlar. Güvenilmeyen bir yanıt için:
+    - soru ürün kararını etkiliyorsa (`escalate_on`, varsayılan DECISION_QUESTIONS): LLM'e gider;
+    - soru yalnızca bilgi amaçlıysa: LLM'e GİTMEZ, Jev'in yanıtı kayıtta kalır ama karara
+      alınmaz (`adopted=False`); soru çözülmemiş kalır ve "eksik değil" gibi sunulmaz.
 
     Sessiz sağlayıcı değişimi YOK: Jev çağrısı kalıcı olarak başarısız olursa LLM'e geçilmez,
     DecisionUnavailable fırlar (görünür hata). LLM yalnızca Jev'in YANITLADIĞI ama güvenmediği
-    sorular için çağrılır. LLM ikinci aşaması başarısız olursa o sorular çözülmemiş kalır ve
-    karar insan incelemesine gider (Jev'in güvenli yanıtları korunur).
+    karar soruları için çağrılır. LLM ikinci aşaması başarısız olursa o sorular çözülmemiş kalır
+    ve karar insan incelemesine gider (Jev'in güvenli yanıtları korunur).
     """
 
     name = StrategyName.HYBRID
+    routing_version = HYBRID_ROUTING_VERSION
 
     def __init__(
         self,
@@ -112,15 +157,19 @@ class HybridStrategy:
         for judgment in jev_result.judgments:
             if self._confident(judgment):
                 judgments.append(judgment)
-            else:
+            elif judgment.question in self.thresholds.escalate_on:
                 uncertain.append(judgment.question)
                 judgments.append(replace(judgment, adopted=False))  # kayıtta kalır, karara girmez
+            else:
+                # Bilgi amaçlı soru: belirsizliği para harcatmaz. Jev'in yanıtı izlenebilirlik için
+                # kayıtta kalır ama karara girmez; soru çözülmemiş sayılır (unresolved_questions).
+                judgments.append(replace(judgment, adopted=False))
 
         providers = [self.jev.name]
         models = [self.jev.model]
         reasons: list[str] = []
 
-        # 2) Yalnızca güvenilmeyen sorular LLM'e.
+        # 2) Yalnızca güvenilmeyen KARAR soruları LLM'e.
         if uncertain:
             providers.append(self.llm.name)
             models.append(self.llm.model)

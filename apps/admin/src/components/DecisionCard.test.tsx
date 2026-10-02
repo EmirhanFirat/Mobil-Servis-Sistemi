@@ -138,4 +138,86 @@ describe('DecisionCard', () => {
     expect(within(table).getByText('0,90 (modelin kendi yazdığı, kalibre değil)')).toBeInTheDocument()
     expect(within(table).getByText('jev (karara alınmadı)')).toBeInTheDocument()
   })
+
+  it('aktarılmayan belirsiz bilgi amaçlı soru "eksik değil" gibi sunulmaz; kesin yanıt yok diye gösterilir', () => {
+    const judgments: DecisionJudgment[] = [
+      {
+        question: 'category',
+        answer: 'plumbing',
+        probabilities: null,
+        confidence: 1,
+        confidence_kind: 'jev_confidence',
+        n_options: 6,
+        source: 'jev',
+        adopted: true,
+      },
+      {
+        question: 'missing_contact',
+        answer: true,
+        probabilities: { yes: 0.63, no: 0.37 },
+        confidence: 0.26,
+        confidence_kind: 'derived_margin',
+        n_options: 2,
+        source: 'jev',
+        adopted: false,
+      },
+    ]
+    render(
+      <DecisionCard
+        panel={{ job, decision: makeDecision({ strategy: 'hybrid', missing_info: [], judgments }) }}
+        vocab={vocab}
+      />,
+    )
+
+    // "Eksik bilgi" satırı boş (—) olsa da ayrı bir satır bilinmeyeni açıkça söyler.
+    expect(screen.getByText('Kesin yanıt yok')).toBeInTheDocument()
+    expect(screen.getByText(/İletişim bilgisi eksik mi\?/, { selector: 'dd' })).toBeInTheDocument()
+    expect(screen.getByText(/“eksik değil” anlamına gelmez/)).toBeInTheDocument()
+  })
+
+  it('tüm sorular kesin yanıtlandıysa "kesin yanıt yok" satırı çıkmaz', () => {
+    const answered = (question: string, answer: string | boolean): DecisionJudgment => ({
+      question,
+      answer,
+      probabilities: null,
+      confidence: 0.9,
+      confidence_kind: 'self_reported',
+      n_options: null,
+      source: 'anthropic',
+      adopted: true,
+    })
+    render(
+      <DecisionCard
+        panel={{
+          job,
+          decision: makeDecision({
+            strategy: 'llm_only',
+            judgments: [answered('category', 'plumbing'), answered('missing_contact', false)],
+          }),
+        }}
+        vocab={vocab}
+      />,
+    )
+
+    expect(screen.queryByText('Kesin yanıt yok')).not.toBeInTheDocument()
+  })
+
+  it('çözülemeyen engelleyici soru incelemeye gönderen neden Türkçe gösterilir', () => {
+    render(
+      <DecisionCard
+        panel={{
+          job,
+          decision: makeDecision({
+            review_required: true,
+            review_reasons: ['llm_unavailable', 'location_unknown'],
+          }),
+        }}
+        vocab={vocab}
+      />,
+    )
+
+    expect(screen.getByText('LLM yanıt vermedi')).toBeInTheDocument()
+    expect(screen.getByText(/Konumun yeterli olup olmadığı belirsiz/)).toBeInTheDocument()
+    expect(screen.queryByText('location_unknown')).not.toBeInTheDocument()
+  })
 })

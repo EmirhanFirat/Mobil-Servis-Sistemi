@@ -104,6 +104,8 @@ const REASON_TEXT: Record<string, string> = {
   possible_prompt_injection: 'Talimat enjeksiyonu şüphesi',
   multiple_issues: 'Birden çok sorun içeriyor',
   llm_unavailable: 'LLM yanıt vermedi',
+  location_unknown: 'Konumun yeterli olup olmadığı belirsiz (karar verilemedi)',
+  detail_unknown: 'Açıklamanın yeterli olup olmadığı belirsiz (karar verilemedi)',
 }
 
 export function reasonText(code: string): string {
@@ -122,6 +124,32 @@ const QUESTION_TEXT: Record<string, string> = {
 
 export function questionText(question: string): string {
   return QUESTION_TEXT[question] ?? question
+}
+
+const QUESTION_ORDER = [
+  'category',
+  'priority',
+  'missing_location',
+  'missing_detail',
+  'missing_contact',
+  'missing_timing',
+]
+
+/**
+ * Karara girmiş KESİN yanıtı olmayan sorular (soru sırasıyla): yalnızca sorulan sorular sayılır.
+ * Benimsenmeyen, belirsiz ("unclear") ve boş yanıtlar çözülmüş sayılmaz. Bu sorular için
+ * "eksik değil" demek yanlıştır: bilinmiyorlar (ör. hibritte Jev'in emin olmadığı bilgi amaçlı
+ * soru LLM'e aktarılmaz; kural tabanlı strateji iletişim/zamanı hiç değerlendirmez).
+ * Python tarafındaki `unresolved_questions` ile aynı kural.
+ */
+export function unresolvedQuestions(judgments: DecisionJudgment[]): string[] {
+  const resolved = new Set(
+    judgments
+      .filter((j) => j.adopted && j.answer !== null && j.answer !== undefined && j.answer !== 'unclear')
+      .map((j) => j.question),
+  )
+  const asked = new Set(judgments.map((j) => j.question))
+  return QUESTION_ORDER.filter((question) => asked.has(question) && !resolved.has(question))
 }
 
 /** Yargının cevabı Türkçe adıyla; "unclear" ve boş cevap açıkça belirsiz diye gösterilir. */

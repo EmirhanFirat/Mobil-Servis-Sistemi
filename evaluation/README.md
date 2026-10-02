@@ -25,7 +25,7 @@ Dört stratejinin (`rule_based`, `llm_only`, `jev_only`, `hybrid`) aynı Türkç
 .\.venv\Scripts\python.exe -m app.evaluation report --run ..\..\evaluation\runs\<kimlik>
 ```
 
-Seçenekler: `--strategies rule_based,mock_jev,...`, `--shuffle-seed N`, `--limit N` (ilk N örnek), `--out <klasör>`. Test bölümü yalnızca nihai rapor içindir: `--splits test --final` gerekir; bayrak olmadan çalıştırma reddedilir (ayarları test sonucuna bakarak değiştirmemek için).
+Seçenekler: `--strategies rule_based,mock_jev,...`, `--shuffle-seed N`, `--limit N` (ilk N örnek), `--out <klasör>`, `--hybrid-threshold SORU=DEĞER` (hibritte tek bir sorunun Jev güven eşiği; tekrarlanabilir; verilmeyenler provizyonel 0,6'da kalır, `run.json`'a yazılır; eşikler `val` bölümünde seçilir). Test bölümü yalnızca nihai rapor içindir: `--splits test --final` gerekir; bayrak olmadan çalıştırma reddedilir (ayarları test sonucuna bakarak değiştirmemek için).
 
 Varsayılan stratejiler (ücretsiz, ağ isteği yok): `rule_based` (gerçek taban) ve `mock_jev`, `mock_llm`, `mock_hybrid` (**mock**).
 

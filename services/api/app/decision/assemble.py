@@ -4,6 +4,7 @@ inceleme gereksinimi kuralları burada, deterministik kodla uygulanır."""
 from uuid import uuid4
 
 from app.decision.contract import (
+    BLOCKING_MISSING,
     CATEGORY_OPTIONS,
     MISSING_QUESTIONS,
     PRIORITY_OPTIONS,
@@ -14,13 +15,11 @@ from app.decision.contract import (
     Judgment,
     Question,
     StrategyName,
+    unresolved_questions,
 )
 from app.decision.injection import looks_like_injection
 from app.decision.safety import check_safety
 from app.domain.vocabulary import Category, MissingInfo, Priority
-
-# Bu bilgiler eksikse ekip talebi işleyemez; insan önce tamamlatmalı.
-BLOCKING_MISSING = frozenset({MissingInfo.LOCATION, MissingInfo.DETAIL})
 
 _PRIORITY_RANK = {Priority.LOW: 0, Priority.NORMAL: 1, Priority.HIGH: 2}
 
@@ -65,6 +64,16 @@ def assemble(
     if priority is None:
         reasons.append("priority_unclear")
     reasons.extend(f"{label.value}_missing" for label in missing if label in BLOCKING_MISSING)
+    # Engelleyici bir soru sorulduğu hâlde KESİN yanıtlanamadıysa (LLM erişilemedi, çekimserlik
+    # kapısı, soru LLM'e aktarılmadı) "eksik değil" diye geçilmez: konum/açıklama bilinmiyor, insan
+    # bakar.
+    asked = {judgment.question for judgment in judgments}
+    unresolved = set(unresolved_questions(judgments))
+    reasons.extend(
+        f"{label.value}_unknown"
+        for question, label in MISSING_QUESTIONS.items()
+        if label in BLOCKING_MISSING and question in asked and question in unresolved
+    )
 
     # Talimat enjeksiyonu şüphesi: model yönlendirilmeye çalışılmış olabilir; insan görsün.
     if looks_like_injection(data):
