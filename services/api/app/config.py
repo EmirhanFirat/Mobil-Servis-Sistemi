@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     jev_api_key: SecretStr | None = None
     jev_base_url: str = "https://api.typesafe.ai"
     jev_model: str = "jev-1.13.0"  # sabitlenmiş sürüm; takma ad (jev-latest) değil
+    # Ekonomik LLM (Anthropic). Standart ANTHROPIC_API_KEY ortam değişkeni BİLEREK okunmaz: başka
+    # araçlar için tanımlı bir anahtar bu projede kazara ücretli çağrı yapmasın.
+    anthropic_api_key: SecretStr | None = None
+    anthropic_base_url: str = "https://api.anthropic.com"
+    anthropic_model: str = "claude-haiku-4-5-20251001"  # sabitlenmiş sürüm, takma ad değil
 
     # Tarayıcıdan API'ye erişebilen kaynaklar: yönetici paneli (5173) ve mobil uygulamanın web
     # önizlemesi (8081). Yalnızca geliştirme varsayılanıdır; üretimde ortam değişkeniyle verilir.

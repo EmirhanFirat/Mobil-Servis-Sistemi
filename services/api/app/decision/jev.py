@@ -25,6 +25,13 @@ from app.decision.contract import (
     Question,
     StrategyName,
 )
+from app.decision.http_common import (
+    SchemaError,
+    reported_tokens,
+    retry_after_seconds,
+    status_for_http,
+    unit,
+)
 from app.decision.jev_questions import PROMPT_VERSION, option_codes, question_definition
 from app.decision.pricing import JEV_1_13, PriceEntry
 from app.decision.providers import ProviderError, ProviderResult
@@ -35,57 +42,6 @@ DEFAULT_MODEL = "jev-1.13.0"
 # SDK varsayılanı 10 sn (docs.typesafe.ai/sdk/python/api/constants.md).
 DEFAULT_TIMEOUT_S = 10.0
 PROBABILITY_TOLERANCE = 0.02
-
-
-class _SchemaError(ValueError):
-    """Yanıt belgelenmiş şemaya uymuyor."""
-
-
-def _number(value: Any, name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise _SchemaError(f"{name} sayı değil")
-    return float(value)
-
-
-def _unit(value: Any, name: str) -> float:
-    number = _number(value, name)
-    if not 0.0 <= number <= 1.0:
-        raise _SchemaError(f"{name} 0–1 aralığında değil")
-    return number
-
-
-def _tokens(usage: Any, field: str) -> int | None:
-    value = usage.get(field) if isinstance(usage, dict) else None
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        return None  # bildirilmedi: uydurulmaz
-    return value
-
-
-def _retry_after(response: httpx.Response) -> float | None:
-    """`retry-after-ms` veya `retry-after` (saniye) başlığı; ayrıştırılamazsa None."""
-    for header, scale in (("retry-after-ms", 1000.0), ("retry-after", 1.0)):
-        raw = response.headers.get(header)
-        if raw is None:
-            continue
-        try:
-            value = float(raw) / scale
-        except ValueError:
-            continue
-        if value >= 0:
-            return value
-    return None
-
-
-def _status_for(code: int) -> CallStatus:
-    if code in (401, 403):
-        return CallStatus.AUTH_ERROR
-    if code == 408:
-        return CallStatus.TIMEOUT
-    if code == 429:
-        return CallStatus.RATE_LIMITED
-    if code >= 500:  # 529 (aşırı yük) dahil
-        return CallStatus.UNAVAILABLE
-    return CallStatus.BAD_REQUEST  # 400/422/diğer 4xx: bizim isteğimizde hata, yeniden denenmez
 
 
 class JevProvider:
@@ -143,21 +99,21 @@ class JevProvider:
     @staticmethod
     def _judgment(question: Question, answer: Any) -> Judgment:
         if not isinstance(answer, dict):
-            raise _SchemaError(f"{question.value} yanıtı nesne değil")
+            raise SchemaError(f"{question.value} yanıtı nesne değil")
         if question in (Question.CATEGORY, Question.PRIORITY):
             if answer.get("type") != "choice":
-                raise _SchemaError(f"{question.value}: tür 'choice' değil")
+                raise SchemaError(f"{question.value}: tür 'choice' değil")
             options = option_codes(question)
             choice = answer.get("choice")
             if choice not in options:
-                raise _SchemaError(f"{question.value}: bilinmeyen seçenek")
+                raise SchemaError(f"{question.value}: bilinmeyen seçenek")
             probabilities = answer.get("probabilities")
             if not isinstance(probabilities, dict) or not set(probabilities) <= set(options):
-                raise _SchemaError(f"{question.value}: olasılıklar geçersiz")
-            parsed = {key: _unit(value, "olasılık") for key, value in probabilities.items()}
+                raise SchemaError(f"{question.value}: olasılıklar geçersiz")
+            parsed = {key: unit(value, "olasılık") for key, value in probabilities.items()}
             if abs(sum(parsed.values()) - 1.0) > PROBABILITY_TOLERANCE:
-                raise _SchemaError(f"{question.value}: olasılıklar 1'e toplanmıyor")
-            confidence = _unit(answer.get("confidence"), "confidence")
+                raise SchemaError(f"{question.value}: olasılıklar 1'e toplanmıyor")
+            confidence = unit(answer.get("confidence"), "confidence")
             return Judgment(
                 question,
                 choice,
@@ -168,8 +124,8 @@ class JevProvider:
                 source="jev",
             )
         if answer.get("type") != "noul":
-            raise _SchemaError(f"{question.value}: tür 'noul' değil")
-        p_yes = _unit(answer.get("noul"), "noul")
+            raise SchemaError(f"{question.value}: tür 'noul' değil")
+        p_yes = unit(answer.get("noul"), "noul")
         # Noul için Jev ayrı güven vermez; evet/hayır kenar payını biz türetir, öyle işaretleriz.
         return Judgment(
             question,
@@ -221,22 +177,23 @@ class JevProvider:
 
         request_id = response.headers.get("x-typesafe-request-id")
         if response.status_code != 200:
-            status = _status_for(response.status_code)
+            status = status_for_http(response.status_code)
+            wait = retry_after_seconds(response) if status is CallStatus.RATE_LIMITED else None
             raise ProviderError(
                 status,
                 f"Jev HTTP {response.status_code}",
                 record(status, request_id=request_id, error=f"HTTP {response.status_code}"),
-                retry_after=_retry_after(response) if status is CallStatus.RATE_LIMITED else None,
+                retry_after=wait,
             )
 
         try:
             body = response.json()
             if not isinstance(body, dict) or not isinstance(body.get("answers"), dict):
-                raise _SchemaError("answers eksik")
+                raise SchemaError("answers eksik")
             answers = body["answers"]
             judgments = tuple(self._judgment(q, answers.get(q.value)) for q in questions)
-        except (ValueError, _SchemaError) as exc:
-            detail = str(exc) if isinstance(exc, _SchemaError) else "JSON değil"
+        except (ValueError, SchemaError) as exc:
+            detail = str(exc) if isinstance(exc, SchemaError) else "JSON değil"
             raise ProviderError(
                 CallStatus.SCHEMA_ERROR,
                 "Jev yanıtı şemaya uymuyor",
@@ -250,8 +207,8 @@ class JevProvider:
             model=reported_model
             if isinstance(reported_model, str) and reported_model
             else self.model,
-            input_tokens=_tokens(usage, "input_tokens"),
-            output_tokens=_tokens(usage, "output_tokens"),
+            input_tokens=reported_tokens(usage, "input_tokens"),
+            output_tokens=reported_tokens(usage, "output_tokens"),
             request_id=request_id,
         )
         return ProviderResult(judgments, call)

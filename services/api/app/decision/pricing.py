@@ -35,6 +35,24 @@ JEV_1_13 = PriceEntry(
     note="Çıktı token'ları ücretsiz ama yine de kaydedilir. Canlı deney öncesi yeniden doğrula.",
 )
 
+# Anthropic: https://platform.claude.com/docs/en/about-claude/pricing — Claude Haiku 4.5, standart
+# (önbelleksiz, toplu işsiz) fiyat: girdi 1 USD, çıktı 5 USD / 1M token.
+CLAUDE_HAIKU_4_5 = PriceEntry(
+    provider="anthropic",
+    model="claude-haiku-4-5-20251001",
+    input_usd_per_mtok=Decimal("1"),
+    output_usd_per_mtok=Decimal("5"),
+    source_url="https://platform.claude.com/docs/en/about-claude/pricing",
+    checked_on=date(2026, 10, 2),
+    note=(
+        "Zorunlu araç çağrısının sistem istemi token'ları (belgeye göre 588) bildirilen girdiye "
+        "dahildir. Önbellek ve toplu iş indirimi uygulanmaz. Resmî model sayfasına göre en erken "
+        "15 Ekim 2026'da kullanımdan kalkabilir (en az 60 gün önceden bildirilir). Tokenizer "
+        "Jev'inkinden farklıdır; token sayıları birebir karşılaştırılamaz. Canlı deney öncesi "
+        "yeniden doğrula."
+    ),
+)
+
 # Mock sağlayıcılar gerçek ücret üretmez; sıfır fiyat, sonuçların gerçek ölçüm OLMADIĞINI gösterir.
 MOCK_JEV = PriceEntry(
     "mock-jev", "mock-jev-1", Decimal(0), Decimal(0), "yok (mock)", date(2026, 10, 2)
@@ -44,7 +62,8 @@ MOCK_LLM = PriceEntry(
 )
 
 PRICES: dict[tuple[str, str], PriceEntry] = {
-    (entry.provider, entry.model): entry for entry in (JEV_1_13, MOCK_JEV, MOCK_LLM)
+    (entry.provider, entry.model): entry
+    for entry in (JEV_1_13, CLAUDE_HAIKU_4_5, MOCK_JEV, MOCK_LLM)
 }
 
 

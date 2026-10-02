@@ -102,6 +102,14 @@ Değerlendirme altyapısı veritabanına bağlı değildir: veri seti `evaluatio
 
 Bilinçli sınırlar: v1 sentetiktir, tek etiketleyicilidir ve kurallar aynı kişice yazıldığı için `rule_based` sonuçları iyimserdir; eksik bilgiden yalnızca `location`/`detail` değerlendirilir.
 
+## D25 — Ekonomik LLM: Claude Haiku 4.5, ham HTTP, zorunlu araç çağrısı (2026-10-02)
+
+"Ekonomik LLM" için Anthropic **Claude Haiku 4.5** (`claude-haiku-4-5-20251001`, 1 / 5 USD) seçildi; adaptör `app/decision/llm_anthropic.py`. **Bu seçimi kullanıcıya sorarak değil, geri alınabilir bir varsayılan olarak ben yaptım** (soru kullanıcı tarafından geçildi): sağlayıcı değişirse yalnızca bu adaptör ve fiyat girdisi değişir, `Provider` arayüzü ve stratejiler aynı kalır. Haiku 4.5, Claude ailesinin en ucuzu ve zorunlu araç çağrısını destekleyen en ucuz modeldir (Sonnet 5.5 2/10 USD'dir ve zorunlu araç çağrısını reddeder).
+
+Resmî SDK yerine ham HTTP (D22 ile aynı gerekçe): `anthropic 1.11.0` `httpx2` ve beş paket daha getirir ve D7 hâlâ açıktır; ayrıca SDK'nın gizli yeniden denemesi retry/maliyet kaydıyla çatışır. Yanıt, zorunlu `submit_judgments` aracıyla alınır ve sıkı doğrulanır; sorular Jev'le aynı metinden üretilir (adil karşılaştırma); kullanıcı metni yalnızca kullanıcı mesajında JSON verisi olarak gider; güven modelin kendi yazdığı sayıdır (`self_reported`). Risk: Haiku 4.5 en erken 15 Ekim 2026'da kullanımdan kalkabilir (60 gün önceden bildirimle); benchmark sonuçları model sürümü ve tarihle birlikte saklanır. Ayrıntı ve kaynaklar: `docs/SAGLAYICILAR.md`.
+
+Ortak ham-HTTP yardımcıları (`http_common.py`: Retry-After, token okuma, durum eşleme, şema denetimi) Jev ve Anthropic adaptörlerince paylaşılır; 402 (faturalandırma) kimlik/hesap hatası, 504 zaman aşımı sayılır (yeniden denemesi sırasıyla yok/var).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.
