@@ -18,7 +18,6 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from app.decision.factory import MissingApiKey, PaidCallsDisabled
-from app.evaluation.dataset import load_samples
 from app.evaluation.plan import PLANNABLE, estimate_plan, format_plan
 from app.evaluation.report import write_report
 from app.evaluation.runner import (
@@ -27,6 +26,7 @@ from app.evaluation.runner import (
     LiveRunGuard,
     TestSplitGuard,
     run_evaluation,
+    select_samples,
 )
 
 
@@ -57,6 +57,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     run.add_argument("--shuffle-seed", type=int, default=None)
     run.add_argument(
+        "--limit", type=int, default=None, help="Yalnızca ilk N örnek (küçük canlı deneme için)"
+    )
+    run.add_argument(
         "--final", action="store_true", help="Test bölümüne izin ver (yalnızca nihai rapor)"
     )
     run.add_argument(
@@ -72,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
     plan.add_argument("--dataset", default="v1")
     plan.add_argument("--splits", default="dev,val")
     plan.add_argument("--strategies", default=",".join(PLANNABLE))
+    plan.add_argument("--shuffle-seed", type=int, default=None)
+    plan.add_argument("--limit", type=int, default=None, help="Yalnızca ilk N örnek")
 
     report = sub.add_parser(
         "report", help="Kayıtlı bir çalıştırmadan rapor üret (model çağrısı yok)"
@@ -81,14 +86,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "plan":
-            samples = [s for s in load_samples(args.dataset) if s.split in _csv(args.splits)]
+            samples = select_samples(
+                args.dataset,
+                _csv(args.splits),
+                shuffle_seed=args.shuffle_seed,
+                limit=args.limit,
+            )
             print(format_plan(estimate_plan(samples, _csv(args.strategies))))
         elif args.command == "run":
             names = _csv(args.strategies)
             splits = _csv(args.splits)
             live = tuple(n for n in names if n in LIVE_STRATEGY_BUILDERS)
             if live:
-                samples = [s for s in load_samples(args.dataset) if s.split in splits]
+                samples = select_samples(
+                    args.dataset, splits, shuffle_seed=args.shuffle_seed, limit=args.limit
+                )
                 print(format_plan(estimate_plan(samples, live)))
                 print(f"\nToplam harcama sınırı: {args.max_cost_usd or 'YOK'} USD\n")
             out = run_evaluation(
@@ -99,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
                 shuffle_seed=args.shuffle_seed,
                 final=args.final,
                 max_cost_usd=args.max_cost_usd,
+                limit=args.limit,
             )
             print(f"Çalıştırma kaydedildi: {out}")
             print(f'Rapor için: python -m app.evaluation report --run "{out}"')

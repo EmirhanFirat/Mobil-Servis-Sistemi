@@ -1,7 +1,13 @@
 """Canlı çalıştırma öncesi YAKLAŞIK ücret tahmini. Bu bir ÖLÇÜM DEĞİLDİR: gerçek token sayıları
 sağlayıcı yanıtından gelir; buradaki sayılar, gerçek istek gövdelerinin uzunluğundan ve açıkça
 yazılı varsayımlardan türetilir. Amaç, kullanıcının makul bir toplam harcama sınırı
-(`--max-cost-usd`) belirleyebilmesidir; sınır, çalıştırıcıda gerçek ücretlere göre uygulanır.
+(`--max-cost-usd`) belirleyebilmesidir.
+
+İki ayrı rakam verilir:
+- "tipik": gövde uzunluğunun 1/3'ü kadar girdi token'ı ve tipik çıktı ile gerçekçi bir kestirim;
+- "en kötü": bütçe korumasının (app/decision/budget.py) GERÇEKTE rezerve edeceği üst sınır
+  (girdi = UTF-8 bayt sayısı, çıktı = max_tokens, her çağrı tüm deneme haklarını kullanır).
+  Sınır en az en pahalı örneğin en kötü durum ücreti kadar olmalıdır; yoksa o örneğe başlanamaz.
 
 Hiçbir ağ isteği yapılmaz: sağlayıcılar yalnızca istek gövdesini üretmek için kurulur.
 """
@@ -11,6 +17,7 @@ import math
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.decision.budget import max_call_cost
 from app.decision.contract import ALL_QUESTIONS
 from app.decision.jev import JevProvider
 from app.decision.llm_anthropic import MAX_TOKENS, AnthropicProvider
@@ -18,7 +25,7 @@ from app.decision.pricing import compute_cost
 from app.decision.retry import DEFAULT_RETRY
 from app.evaluation.dataset import Sample
 
-# Varsayımlar (ölçülmedi; gerçek değerler farklı olabilir). Muhafazakâr yönde seçildi.
+# Varsayımlar (ölçülmedi; gerçek değerler farklı olabilir). "Tipik" rakamlar içindir.
 CHARS_PER_TOKEN = 3  # JSON ve Türkçe metin için düşük bir oran → token sayısı yüksek tahmin edilir
 FORCED_TOOL_OVERHEAD_TOKENS = 588  # Claude Haiku 4.5, zorunlu araç çağrısı (resmî fiyat sayfası)
 TYPICAL_LLM_OUTPUT_TOKENS = 160  # altı soru için kabaca; üst sınır MAX_TOKENS
@@ -42,6 +49,8 @@ class PlanEstimate:
     typical_low_usd: Decimal
     typical_high_usd: Decimal
     worst_usd: Decimal
+    # Bütçe korumasının BİR örneğe başlayabilmesi için gereken en küçük sınır (en pahalı örnek).
+    min_cap_usd: Decimal
 
 
 def _tokens(payload: dict) -> int:
@@ -55,24 +64,33 @@ def estimate_plan(samples: list[Sample], strategy_names: tuple[str, ...]) -> Pla
     jev = JevProvider("plan-only")  # yalnızca istek gövdesi için; ağ isteği yapılmaz
     llm = AnthropicProvider("plan-only")
     attempts = DEFAULT_RETRY.max_attempts
+    jev_typical = Decimal(0)
+    llm_typical = Decimal(0)
+    jev_worst = Decimal(0)
+    llm_worst = Decimal(0)
+    min_cap = Decimal(0)
     try:
-        jev_typical = Decimal(0)
-        llm_typical = Decimal(0)
-        llm_worst = Decimal(0)
         for sample in samples:
             data = sample.to_input()
             jev_in = _tokens(jev.build_request(data, ALL_QUESTIONS))
             llm_in = _tokens(llm.build_request(data, ALL_QUESTIONS)) + FORCED_TOOL_OVERHEAD_TOKENS
             jev_typical += compute_cost(jev.price, jev_in, 0) or Decimal(0)
             llm_typical += compute_cost(llm.price, llm_in, TYPICAL_LLM_OUTPUT_TOKENS) or Decimal(0)
-            llm_worst += compute_cost(llm.price, llm_in, MAX_TOKENS) or Decimal(0)
+            # En kötü durum: bütçe korumasının gerçekte rezerve edeceği üst sınır × deneme hakkı.
+            sample_jev = attempts * max_call_cost(jev, data)
+            sample_llm = attempts * max_call_cost(llm, data)
+            jev_worst += sample_jev
+            llm_worst += sample_llm
+            needed = {
+                "jev_only": sample_jev,
+                "llm_only": sample_llm,
+                "hybrid": sample_jev + sample_llm,
+            }
+            min_cap = max(min_cap, sum((needed[name] for name in strategy_names), Decimal(0)))
     finally:
         jev.close()
         llm.close()
 
-    # En kötü durum: her çağrı tüm deneme haklarını kullanır ve çıktı üst sınıra dayanır.
-    jev_worst = jev_typical * attempts
-    llm_worst *= attempts
     lines: list[PlanLine] = []
     for name in strategy_names:
         if name == "jev_only":
@@ -96,6 +114,7 @@ def estimate_plan(samples: list[Sample], strategy_names: tuple[str, ...]) -> Pla
         typical_low_usd=sum((line.typical_low_usd for line in lines), Decimal(0)),
         typical_high_usd=sum((line.typical_high_usd for line in lines), Decimal(0)),
         worst_usd=sum((line.worst_usd for line in lines), Decimal(0)),
+        min_cap_usd=min_cap,
     )
 
 
@@ -123,17 +142,23 @@ def format_plan(plan: PlanEstimate) -> str:
     rows += [
         f"{'TOPLAM':<10} {'':<18} {total_typical:<20} {_usd(plan.worst_usd):<14}",
         "",
+        f"Harcama sınırı en az {_usd(plan.min_cap_usd)} USD olmalı: bundan küçük sınırda en pahalı "
+        "örneğe başlanamaz (hiçbir çağrı gönderilmez).",
+        "",
         "Varsayımlar:",
-        f"- Girdi token'ı: istek gövdesi uzunluğu / {CHARS_PER_TOKEN} (muhafazakâr), Anthropic'te "
-        f"+{FORCED_TOOL_OVERHEAD_TOKENS} zorunlu araç çağrısı sistem istemi.",
-        f"- Çıktı token'ı: LLM tipik {TYPICAL_LLM_OUTPUT_TOKENS}, en kötü {MAX_TOKENS} "
-        "(max_tokens); Jev çıktısı ücretsiz.",
-        f"- En kötü durum: her çağrı {DEFAULT_RETRY.max_attempts} deneme hakkını kullanır.",
-        "- Hibritte LLM'e giden soru oranı bilinmiyor: alt sınır yalnızca Jev, üst sınır tüm "
+        f"- 'Tipik': girdi token'ı = istek gövdesi uzunluğu / {CHARS_PER_TOKEN} (muhafazakâr), "
+        f"Anthropic'te +{FORCED_TOOL_OVERHEAD_TOKENS} zorunlu araç çağrısı sistem istemi; çıktı "
+        f"LLM için {TYPICAL_LLM_OUTPUT_TOKENS} token, Jev çıktısı ücretsiz.",
+        "- 'En kötü': bütçe korumasının gerçekte rezerve edeceği üst sınır. Girdi = istek "
+        "gövdesinin UTF-8 bayt sayısı (bir token en az bir bayttır) + sabit ek + pay; çıktı = "
+        f"{MAX_TOKENS} token (max_tokens tavanı); her çağrı {DEFAULT_RETRY.max_attempts} deneme "
+        "hakkını kullanır. Gerçek ücretten 2–3 kat büyüktür; bilerek aşırı muhafazakârdır.",
+        "- Hibritte LLM'e giden soru oranı bilinmiyor: tipik alt sınır yalnızca Jev, üst sınır tüm "
         "sorular LLM'e gider.",
         "- Gerçek token sayıları ve ücret sağlayıcı yanıtından gelir ve farklı olabilir; fiyatlar "
         "docs/SAGLAYICILAR.md'deki tarihli değerlerdir (canlı öncesi yeniden doğrulanmalı).",
-        "- Harcama sınırı (--max-cost-usd) çalıştırıcıda gerçek ücretlere göre uygulanır; "
-        "aşım en çok bir örneğin ücreti kadar olabilir.",
+        "- Garanti edilemeyenler: fiyat tablosunun güncelliği, faturanın yayımlanmış fiyatla "
+        "örtüşmesi, aynı anahtarın başka yerde kullanımı, süreç çökmesinde sayacın kaybı "
+        "(app/decision/budget.py başı).",
     ]
     return "\n".join(rows)

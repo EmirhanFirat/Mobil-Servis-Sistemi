@@ -169,6 +169,17 @@ def unknown_cost_count(calls: tuple[CallRecord, ...] | list[CallRecord]) -> int:
     return sum(call.cost_usd is None for call in calls)
 
 
+class BudgetExhausted(Exception):
+    """Bir çağrı, harcama sınırını aşabileceği için GÖNDERİLMEDİ (veya üst sınırı hesaplanamadığı
+    için gönderilemez). Sağlayıcı hatası DEĞİLDİR: yeniden denenmez, başka sağlayıcıya geçilmez,
+    tüm çalıştırmayı durdurur. `calls`, bu karar için o ana dek yapılmış çağrıların kayıtlarıdır
+    (harcanan ücret kaybolmasın)."""
+
+    def __init__(self, message: str, calls: tuple[CallRecord, ...] = ()):
+        super().__init__(message)
+        self.calls = calls
+
+
 class DecisionUnavailable(Exception):
     """Sağlayıcı sınırlı retry'dan sonra da yanıt veremedi. Talep etkilenmez (kaybolmaz); çağıran
     görünür bir hata durumu yazar. Başarısız denemelerin kayıtları maliyet için taşınır."""

@@ -9,11 +9,13 @@ Adil karşılaştırma ilkeleri:
 
 Gerçek (ücretli) stratejiler `LIVE_STRATEGY_BUILDERS` içindedir ve varsayılan listede YOKTUR:
 yalnızca açıkça istenirse, pozitif bir toplam harcama sınırıyla (`max_cost_usd`), ücretli çağrılar
-açık ve anahtarlar tanımlıysa çalışır. Sınır örnek sınırında denetlenir: bir sonraki örneğin
-(şimdiye dek görülen en pahalı örnek kadar) ücreti sınırı aşacaksa durulur; böylece tüm stratejiler
-aynı örnekleri tamamlamış olur ve aşım yalnızca beklenenden pahalı bir örnekle (ör. çok retry)
-olabilir. Maliyeti bilinemeyen bir çağrı (kullanım bildirilmedi) harcama sınırını boşa çıkaracağı
-için çalıştırmayı durdurur.
+açık ve anahtarlar tanımlıysa çalışır. Harcama sınırı **çağrı başına muhafazakâr rezervasyonla**
+uygulanır (bkz. app/decision/budget.py): her sağlayıcı çağrısından ve her retry'dan önce o
+çağrının ücretinin üst sınırı rezerve edilir; bütçe yetmiyorsa çağrı HİÇ gönderilmez. Maliyeti
+bilinemeyen çağrı ücretsiz sayılmaz, rezerve edilen en kötü durum bedeliyle sayılır. Her örneğe
+başlamadan önce o örneğin TÜM stratejilerdeki en kötü durum ücreti de karşılanabiliyor olmalıdır;
+böylece tüm stratejiler aynı örnekleri tamamlar. Garanti edilemeyen noktalar budget.py başında
+açıkça listelenir.
 """
 
 import json
@@ -28,7 +30,12 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.decision.contract import DecisionUnavailable, StrategyName
+from app.decision.budget import (
+    BudgetedProvider,
+    BudgetGuard,
+    worst_decision_cost,
+)
+from app.decision.contract import BudgetExhausted, DecisionInput, DecisionUnavailable, StrategyName
 from app.decision.factory import anthropic_provider_from_settings, jev_provider_from_settings
 from app.decision.pricing import PRICES
 from app.decision.registry import FREE_STRATEGY_BUILDERS
@@ -61,12 +68,6 @@ LIVE_STRATEGY_BUILDERS: dict[str, Callable[[Settings], object]] = {
         jev_provider_from_settings(s), anthropic_provider_from_settings(s)
     ),
 }
-
-# Harcama takibinde, maliyeti hesaplanamazsa "bilinmeyen maliyet" sayılan çağrı durumları: model
-# yanıtı alındı (başarılı veya şemaya uymayan 200 yanıtı), dolayısıyla ücretlendirilmiş olabilir.
-# Ağ/HTTP hata denemelerinde (zaman aşımı, 5xx, 429) sunucu tarafı ücret bilinemez ve takibe
-# girmez; bunlar raporda yine "bilinmiyor" olarak görünür.
-_BILLABLE_STATUSES = frozenset({"ok", "schema_error"})
 
 
 class TestSplitGuard(RuntimeError):
@@ -136,16 +137,44 @@ def git_state(cwd: Path | None = None) -> dict:
     }
 
 
-def _spend(prediction: dict) -> tuple[Decimal, int]:
-    """(bilinen ücret, maliyeti hesaplanamayan ücretlendirilebilir çağrı sayısı)."""
-    known = Decimal(0)
-    unknown = 0
-    for call in prediction.get("calls", []):
-        if call["cost_usd"] is not None:
-            known += Decimal(call["cost_usd"])
-        elif call["status"] in _BILLABLE_STATUSES:
-            unknown += 1
-    return known, unknown
+def select_samples(
+    version: str,
+    splits: tuple[str, ...],
+    *,
+    shuffle_seed: int | None = None,
+    limit: int | None = None,
+) -> list[Sample]:
+    """Çalıştırılacak/planlanacak örnekler: bölümlere göre süz, (tohumluysa) karıştır, ilk `limit`
+    tanesini al. Aynı girdi her zaman aynı örnekleri verir."""
+    if limit is not None and limit < 1:
+        raise ValueError("Örnek sınırı (--limit) en az 1 olmalı.")
+    samples = [s for s in load_samples(version) if s.split in splits]
+    if shuffle_seed is not None:
+        random.Random(shuffle_seed).shuffle(samples)
+    return samples if limit is None else samples[:limit]
+
+
+def _attach_budget(strategy: object, guard: BudgetGuard) -> None:
+    """Stratejideki her gerçek sağlayıcıyı bütçe korumasıyla sarar (her çağrı rezervasyonlu)."""
+    if isinstance(strategy, ProviderStrategy):
+        strategy.provider = BudgetedProvider(strategy.provider, guard)
+    elif isinstance(strategy, HybridStrategy):
+        strategy.jev = BudgetedProvider(strategy.jev, guard)
+        strategy.llm = BudgetedProvider(strategy.llm, guard)
+
+
+def _budget_stop_reason(
+    guard: BudgetGuard, live_strategies: list[object], data: DecisionInput
+) -> str | None:
+    """Bu örneğe başlanabilir mi? Başlanamazsa nedeni. Örneğin TÜM gerçek stratejilerdeki en kötü
+    durum ücreti (her çağrı tüm deneme haklarını kullanır) karşılanabilmeli."""
+    if guard.bound_violations:
+        return "estimate_violated"  # üst sınır varsayımı ihlal edildi: güvenilemez, dur
+    try:
+        worst = sum((worst_decision_cost(s, data) for s in live_strategies), Decimal(0))
+    except BudgetExhausted:
+        return "unbounded"  # fiyat veya çıktı tavanı bilinmiyor: ücret sınırlanamaz
+    return None if guard.can_afford(worst) else "budget"
 
 
 def _close(strategy: object) -> None:
@@ -170,6 +199,7 @@ def run_evaluation(
     shuffle_seed: int | None = None,
     final: bool = False,
     max_cost_usd: Decimal | None = None,
+    limit: int | None = None,
     settings: Settings | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     git: Callable[[], dict] = git_state,
@@ -194,9 +224,7 @@ def run_evaluation(
     if max_cost_usd is not None and max_cost_usd <= 0:
         raise ValueError("Harcama sınırı pozitif olmalı.")
 
-    samples = [s for s in load_samples(version) if s.split in splits]
-    if shuffle_seed is not None:
-        random.Random(shuffle_seed).shuffle(samples)
+    samples = select_samples(version, splits, shuffle_seed=shuffle_seed, limit=limit)
     # Stratejiler çıktı klasörü açılmadan KURULUR: ücretli çağrılar kapalıysa veya anahtar yoksa
     # hiçbir şey yazılmadan açık hata alınır.
     live_settings = (settings or get_settings()) if live else None
@@ -206,6 +234,12 @@ def run_evaluation(
             strategies[name] = LIVE_STRATEGY_BUILDERS[name](live_settings)
         else:
             strategies[name] = STRATEGY_BUILDERS[name]()
+    # Gerçek stratejilerin her sağlayıcı çağrısı bütçe rezervasyonundan geçer.
+    guard = BudgetGuard(max_cost_usd) if live and max_cost_usd is not None else None
+    live_strategies = [strategies[n] for n in strategy_names if n in LIVE_STRATEGY_BUILDERS]
+    if guard is not None:
+        for strategy in live_strategies:
+            _attach_budget(strategy, guard)
 
     started = now()
     run_id = f"{started.strftime('%Y%m%dT%H%M%SZ')}-{version}-{'+'.join(splits)}"
@@ -218,36 +252,36 @@ def run_evaluation(
         raise
 
     names = list(strategies)
-    spent = Decimal(0)
-    unknown_calls = 0
-    max_sample_cost = Decimal(0)
     completed = 0
     stopped: dict | None = None
+    aborted: dict | None = None
     failure: Exception | None = None
     try:
         with (out_dir / "predictions.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
             for index, sample in enumerate(samples):
-                if live:
-                    reason = None
-                    if unknown_calls:
-                        reason = "unknown_cost"
-                    elif max_cost_usd is not None and spent + max_sample_cost > max_cost_usd:
-                        reason = "budget"
+                if guard is not None:
+                    reason = _budget_stop_reason(guard, live_strategies, sample.to_input())
                     if reason:
                         stopped = {"reason": reason}
                         break
                 # Rotasyon: her örnekte başlangıç stratejisi değişir (sıra etkisini azaltır).
                 rotation = names[index % len(names) :] + names[: index % len(names)]
-                sample_cost = Decimal(0)
                 for name in rotation:
                     prediction = _predict(name, strategies[name], sample)
+                    if prediction.get("aborted"):
+                        # Bütçe bu kararın ortasında bitti (ön denetim aşılmış olsa da). Yarım karar
+                        # tahmin sayılmaz ama harcanan çağrıları kayıpta kalmaz.
+                        aborted = {
+                            "sample_id": sample.id,
+                            "strategy": name,
+                            "calls": prediction["calls"],
+                        }
+                        stopped = {"reason": "budget"}
+                        break
                     handle.write(json.dumps(prediction, ensure_ascii=False) + "\n")
-                    known, unknown = _spend(prediction)
-                    spent += known
-                    sample_cost += known
-                    unknown_calls += unknown
+                if aborted is not None:
+                    break
                 handle.flush()  # kesintide o ana dek olan tahminler diskte kalır
-                max_sample_cost = max(max_sample_cost, sample_cost)
                 completed += 1
     except KeyboardInterrupt:
         stopped = {"reason": "interrupted"}
@@ -272,6 +306,7 @@ def run_evaluation(
             "splits_used": list(splits),
             "n_samples": len(samples),
             "n_samples_completed": completed,
+            "limit": limit,
             "source": manifest.get("source"),
             "label_status": manifest.get("label_status"),
         },
@@ -286,11 +321,17 @@ def run_evaluation(
         },
         "budget": {
             "live": live,
-            "max_cost_usd": None if max_cost_usd is None else str(max_cost_usd),
-            "spent_known_usd": str(spent),
-            "billable_calls_with_unknown_cost": unknown_calls,
+            "method": "çağrı başına en kötü durum rezervasyonu (app/decision/budget.py)"
+            if live
+            else None,
+            **(
+                guard.summary()
+                if guard is not None
+                else {"max_cost_usd": None if max_cost_usd is None else str(max_cost_usd)}
+            ),
         },
         "stopped_early": stopped,
+        "aborted_prediction": aborted,
         "prices": [
             {
                 "provider": e.provider,
@@ -317,6 +358,13 @@ def _predict(name: str, strategy: object, sample: Sample) -> dict:
     started = time.perf_counter()
     try:
         decision = strategy.decide(sample.to_input())  # type: ignore[attr-defined]
+    except BudgetExhausted as stop:
+        return {
+            **base,
+            "aborted": True,
+            "error": str(stop),
+            "calls": [call_to_dict(c) for c in stop.calls],
+        }
     except DecisionUnavailable as failure:
         return {
             **base,

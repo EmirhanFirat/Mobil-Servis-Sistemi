@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from app.decision.contract import (
+    BudgetExhausted,
     CallRecord,
     DecisionInput,
     DecisionUnavailable,
@@ -71,6 +72,10 @@ def classify_with_retry(
                 ) from error
             sleep(policy.delay(attempt, error.retry_after))
             continue
+        except BudgetExhausted as stop:
+            # Harcama sınırı: bu retry döngüsünde o ana dek harcananlar kayıpta kalmasın.
+            stop.calls = (*records, *stop.calls)
+            raise
         record = _finalize(provider, result.call, attempt)
         records.append(record)
         return ProviderResult(result.judgments, record), records

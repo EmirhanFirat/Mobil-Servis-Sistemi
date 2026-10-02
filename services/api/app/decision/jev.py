@@ -47,6 +47,10 @@ PROBABILITY_TOLERANCE = 0.02
 class JevProvider:
     name = "jev"
     prompt_version = PROMPT_VERSION
+    # Harcama üst sınırı (budget.py) için. Jev çıktısı ücretsizdir (docs/SAGLAYICILAR.md); fiyat
+    # tablosunda çıktı ücreti sıfırdan büyük olursa çıktı tavanı bilinmediği için çağrı reddedilir.
+    fixed_overhead_tokens = 0
+    max_output_tokens = None
 
     def __init__(
         self,

@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from app.config import Settings
+from app.decision.budget import max_call_cost, worst_decision_cost
 from app.decision.contract import ALL_QUESTIONS, StrategyName
 from app.decision.factory import MissingApiKey, PaidCallsDisabled
 from app.decision.retry import RetryPolicy
@@ -20,10 +21,11 @@ from app.evaluation.runner import (
     STRATEGY_BUILDERS,
     LiveRunGuard,
     run_evaluation,
+    select_samples,
 )
 from tests.decision.test_jev import ok_response as jev_ok_response
 from tests.decision.test_jev import provider as jev_provider
-from tests.decision.test_llm_anthropic import KEY
+from tests.decision.test_llm_anthropic import KEY, usage_block
 from tests.decision.test_llm_anthropic import ok_response as llm_ok_response
 from tests.decision.test_llm_anthropic import provider as llm_provider
 
@@ -143,52 +145,87 @@ class TestGuards:
         assert run_json(run_dir)["stopped_early"] is None
 
 
+def first_dev_input():
+    return [s for s in load_samples("v1") if s.split == "dev"][0].to_input()
+
+
+def llm_worst_cost_for(data) -> Decimal:
+    """Bir `llm_only` kararının en kötü durum ücreti (bütçe korumasının ön denetimiyle aynı hesap)."""
+    llm, _ = llm_provider(lambda r: llm_ok_response())
+    return worst_decision_cost(ProviderStrategy(StrategyName.LLM_ONLY, llm, NO_WAIT), data)
+
+
 class TestBudget:
-    def test_sinira_ulasinca_ornek_sinirinda_durur(self, tmp_path, monkeypatch):
+    def test_sinir_tek_karari_bile_karsilamiyorsa_hicbir_istek_gonderilmez(
+        self, tmp_path, monkeypatch
+    ):
         build = install_llm(monkeypatch, lambda r: llm_ok_response())
 
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.005"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.001"))
 
         record = run_json(run_dir)
-        assert len(predictions(run_dir)) == 2  # 0,0019 + 0,0019 = 0,0038; üçüncüsü 0,0057 > 0,005
-        assert len(build.requests) == 2  # durduktan sonra istek atılmadı
+        assert predictions(run_dir) == [] and build.requests == []
         assert record["stopped_early"] == {
             "reason": "budget",
-            "samples_completed": 2,
+            "samples_completed": 0,
             "samples_planned": DEV_SAMPLES,
         }
-        assert Decimal(record["budget"]["spent_known_usd"]) == Decimal("0.0038")
-        assert Decimal(record["budget"]["spent_known_usd"]) <= Decimal(
-            record["budget"]["max_cost_usd"]
-        )
-        assert record["dataset"]["n_samples"] == DEV_SAMPLES
-        assert record["dataset"]["n_samples_completed"] == 2
+        assert record["budget"]["spent_usd"] == "0" and record["budget"]["calls"] == 0
 
-    def test_yeterli_butcede_tum_ornekler_calisir(self, tmp_path, monkeypatch):
+    def test_ilk_ornegin_en_kotu_durumu_karsilanmiyorsa_baslanmaz_karsilaniyorsa_baslar(
+        self, tmp_path, monkeypatch
+    ):
+        worst = llm_worst_cost_for(first_dev_input())
+        build = install_llm(monkeypatch, lambda r: llm_ok_response())
+
+        do_run(
+            tmp_path / "kucuk",
+            strategy_names=("llm_only",),
+            max_cost_usd=worst - Decimal("0.000001"),
+            limit=1,
+        )
+        assert build.requests == []  # bir kuruş eksik: tek istek bile gönderilmez
+
+        run_dir = do_run(
+            tmp_path / "yeterli", strategy_names=("llm_only",), max_cost_usd=worst, limit=1
+        )
+        assert len(build.requests) == 1 and len(predictions(run_dir)) == 1
+
+    @pytest.mark.parametrize("cap", ["0.03", "0.05", "0.1", "0.2", "0.5"])
+    def test_harcama_hicbir_zaman_siniri_asmaz(self, tmp_path, monkeypatch, cap):
+        build = install_llm(monkeypatch, lambda r: llm_ok_response())
+
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal(cap))
+
+        record = run_json(run_dir)
+        budget = record["budget"]
+        assert Decimal(budget["spent_usd"]) <= Decimal(cap)  # KESİN sınır
+        assert budget["bound_violations"] == 0
+        assert budget["calls"] == len(build.requests)  # her gönderilen istek sayıldı
+        assert len(predictions(run_dir)) == record["dataset"]["n_samples_completed"]
+        if record["stopped_early"]:
+            assert record["stopped_early"]["reason"] == "budget"
+
+    def test_yeterli_butcede_tum_ornekler_calisir_ucret_gercek_kullanimdan_hesaplanir(
+        self, tmp_path, monkeypatch
+    ):
         install_llm(monkeypatch, lambda r: llm_ok_response())
 
         run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"))
 
         record = run_json(run_dir)
-        assert len(predictions(run_dir)) == DEV_SAMPLES
-        assert record["stopped_early"] is None
-        assert Decimal(record["budget"]["spent_known_usd"]) == LLM_CALL_COST * DEV_SAMPLES
-        assert record["budget"]["max_cost_usd"] == "1"
-        assert record["budget"]["live"] is True
-
-    def test_butce_ilk_ornekte_yetmese_bile_en_fazla_bir_ornek_calisir(self, tmp_path, monkeypatch):
-        build = install_llm(monkeypatch, lambda r: llm_ok_response())
-
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.0001"))
-
-        assert len(predictions(run_dir)) == 1 and len(build.requests) == 1
-        assert run_json(run_dir)["stopped_early"]["reason"] == "budget"
+        assert len(predictions(run_dir)) == DEV_SAMPLES and record["stopped_early"] is None
+        budget = record["budget"]
+        assert Decimal(budget["spent_usd"]) == LLM_CALL_COST * DEV_SAMPLES
+        assert budget["known_spent_usd"] == budget["spent_usd"]
+        assert budget["conservative_charges"] == 0 and budget["live"] is True
+        assert budget["max_cost_usd"] == "1"
 
     def test_tum_stratejiler_ayni_ornekleri_tamamlar(self, tmp_path, monkeypatch):
         install_llm(monkeypatch, lambda r: llm_ok_response())
 
         run_dir = do_run(
-            tmp_path, strategy_names=("rule_based", "llm_only"), max_cost_usd=Decimal("0.005")
+            tmp_path, strategy_names=("rule_based", "llm_only"), max_cost_usd=Decimal("0.1")
         )
 
         rows = predictions(run_dir)
@@ -196,44 +233,112 @@ class TestBudget:
             name: {r["sample_id"] for r in rows if r["strategy"] == name}
             for name in ("rule_based", "llm_only")
         }
-        assert by_strategy["rule_based"] == by_strategy["llm_only"]
-        assert len(by_strategy["llm_only"]) == 2
+        assert by_strategy["rule_based"] == by_strategy["llm_only"] and by_strategy["llm_only"]
 
-    def test_maliyeti_bilinmeyen_cagri_calistirmayi_durdurur(self, tmp_path, monkeypatch):
+    def test_kullanimi_bilinmeyen_cagri_ucretsiz_sayilmaz_en_kotu_bedelle_sayilir(
+        self, tmp_path, monkeypatch
+    ):
         install_llm(monkeypatch, lambda r: llm_ok_response(usage={}))  # kullanım bildirilmedi
 
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.1"))
 
         record = run_json(run_dir)
-        assert len(predictions(run_dir)) == 1
-        assert record["stopped_early"]["reason"] == "unknown_cost"
-        assert record["budget"]["billable_calls_with_unknown_cost"] == 1
+        budget = record["budget"]
+        assert budget["conservative_charges"] == budget["calls"] > 0
+        assert budget["known_spent_usd"] == "0"
+        assert Decimal("0.01") < Decimal(budget["spent_usd"]) <= Decimal("0.1")  # sıfır DEĞİL
+        assert record["stopped_early"]["reason"] == "budget"  # bedel hızla tükenir
 
-    def test_sema_hatasi_yanitinin_ucreti_butceye_girer(self, tmp_path, monkeypatch):
-        broken = {"category": {"answer": "bilinmeyen", "confidence": 0.5}}  # eksik/yanlış şema
+    def test_http_hatalari_ve_zaman_asimi_da_ucretsiz_sayilmaz(self, tmp_path, monkeypatch):
+        build = install_llm(monkeypatch, lambda r: httpx.Response(529))
+
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.1"))
+
+        record = run_json(run_dir)
+        budget = record["budget"]
+        assert budget["calls"] == len(build.requests) > 0
+        assert budget["conservative_charges"] == budget["calls"]
+        assert 0 < Decimal(budget["spent_usd"]) <= Decimal("0.1")
+        assert record["stopped_early"]["reason"] == "budget"
+        assert all(
+            p["failed"] for p in predictions(run_dir)
+        )  # kararlar başarısız, ücret yine sayıldı
+
+    def test_sema_hatasi_yaniti_kullanim_bildirdigi_icin_gercek_ucretle_sayilir(
+        self, tmp_path, monkeypatch
+    ):
+        broken = {"category": {"answer": "bilinmeyen", "confidence": 0.5}}
         install_llm(monkeypatch, lambda r: llm_ok_response(broken))
 
         run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"))
 
         record = run_json(run_dir)
-        # 3 deneme × 0,0019 ücretlendirildi (kullanım bildirildi); ilk örnek başarısız olarak kayıtlı.
-        assert predictions(run_dir)[0]["failed"] is True
-        assert Decimal(record["budget"]["spent_known_usd"]) >= LLM_CALL_COST * 3
+        assert all(p["failed"] for p in predictions(run_dir))
+        assert Decimal(record["budget"]["spent_usd"]) == LLM_CALL_COST * 3 * DEV_SAMPLES
+        assert record["budget"]["conservative_charges"] == 0
 
-    def test_hata_denemeleri_butceyi_durdurmaz_ama_raporda_bilinmiyor_gorunur(
-        self, tmp_path, monkeypatch
-    ):
-        install_llm(monkeypatch, lambda r: httpx.Response(529))
+    def test_gercek_ucret_rezervasyonu_asarsa_calistirma_durur(self, tmp_path, monkeypatch):
+        huge = usage_block(input_tokens=5_000_000)  # tahminin çok üstünde bir kullanım
+        install_llm(monkeypatch, lambda r: llm_ok_response(usage=huge))
 
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.01"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("100"))
 
         record = run_json(run_dir)
-        assert len(predictions(run_dir)) == DEV_SAMPLES  # her örnek denendi, çalıştırma sürdü
-        assert record["stopped_early"] is None
-        assert record["budget"]["spent_known_usd"] == "0"
-        metrics = build_report(run_dir)[1]["splits"]["dev"]["llm_only"]
-        assert metrics["n_failed"] == DEV_SAMPLES
-        assert metrics["calls_with_unknown_cost"] == 3 * DEV_SAMPLES  # 3 deneme × örnek
+        assert record["budget"]["bound_violations"] == 1
+        assert record["stopped_early"]["reason"] == "estimate_violated"
+        assert record["stopped_early"]["samples_completed"] == 1  # ihlalden sonra yeni örnek yok
+
+    def test_fiyati_bilinmeyen_saglayicida_ucret_sinirlanamaz_hicbir_istek_gonderilmez(
+        self, tmp_path, monkeypatch
+    ):
+        seen = []
+
+        def build(_settings):
+            llm, requests = llm_provider(lambda r: llm_ok_response(), price=None)
+            seen.append(requests)
+            return ProviderStrategy(StrategyName.LLM_ONLY, llm, NO_WAIT, lambda s: None)
+
+        monkeypatch.setitem(LIVE_STRATEGY_BUILDERS, "llm_only", build)
+
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"))
+
+        assert run_json(run_dir)["stopped_early"]["reason"] == "unbounded"
+        assert seen[0] == [] and predictions(run_dir) == []
+
+    def test_butce_karar_ortasinda_biterse_yarim_karar_run_json_a_yazilir_tahmin_sayilmaz(
+        self, tmp_path, monkeypatch
+    ):
+        # Ön denetimi atlayıp (varsayım ihlali benzetimi) bütçenin LLM aşamasında bitmesini sağla.
+        monkeypatch.setattr(runner, "worst_decision_cost", lambda strategy, data: Decimal(0))
+        jev_probe, _ = jev_provider(lambda r: jev_ok_response())
+        llm_probe, _ = llm_provider(lambda r: llm_ok_response())
+        data = first_dev_input()
+        cap = max_call_cost(jev_probe, data) + max_call_cost(llm_probe, data) / 2
+        seen = {}
+
+        def build(_settings):
+            jev, seen["jev"] = jev_provider(lambda r: jev_ok_response())
+            llm, seen["llm"] = llm_provider(lambda r: llm_ok_response())
+            thresholds = HybridThresholds(dict.fromkeys(ALL_QUESTIONS, 0.99))  # hepsi LLM'e gider
+            return HybridStrategy(jev, llm, thresholds, NO_WAIT, lambda s: None)
+
+        monkeypatch.setitem(LIVE_STRATEGY_BUILDERS, "hybrid", build)
+
+        run_dir = do_run(tmp_path, strategy_names=("hybrid",), max_cost_usd=cap)
+
+        record = run_json(run_dir)
+        assert predictions(run_dir) == []  # yarım karar tahmin sayılmadı
+        assert len(seen["jev"]) == 1 and seen["llm"] == []  # LLM isteği hiç gönderilmedi
+        assert record["stopped_early"]["reason"] == "budget"
+        assert record["stopped_early"]["samples_completed"] == 0
+        aborted = record["aborted_prediction"]
+        assert (
+            aborted["strategy"] == "hybrid" and len(aborted["calls"]) == 1
+        )  # Jev harcaması kayıtlı
+        assert aborted["calls"][0]["provider"] == "jev"
+        assert Decimal(record["budget"]["spent_usd"]) == JEV_CALL_COST  # harcama sayaçta
+        markdown, _ = build_report(run_dir)
+        assert "Bütçe nedeniyle yarıda kesilen karar" in markdown
 
     def test_hibrit_gercek_adaptorlerle_harcama_jev_ve_llm_toplamidir(self, tmp_path, monkeypatch):
         def build(_settings):
@@ -247,8 +352,9 @@ class TestBudget:
         run_dir = do_run(tmp_path, strategy_names=("hybrid",), max_cost_usd=Decimal("1"))
 
         record = run_json(run_dir)
-        spent = Decimal(record["budget"]["spent_known_usd"])
-        assert spent == (JEV_CALL_COST + LLM_CALL_COST) * DEV_SAMPLES
+        assert Decimal(record["budget"]["spent_usd"]) == (JEV_CALL_COST + LLM_CALL_COST) * (
+            DEV_SAMPLES
+        )
         strategy = record["strategies"][0]
         assert strategy["jev"]["model"] == "jev-1.13.0"
         assert strategy["llm"]["model"] == "claude-haiku-4-5-20251001"
@@ -258,7 +364,7 @@ class TestBudget:
     def test_kayitlarda_anahtar_yok(self, tmp_path, monkeypatch):
         install_llm(monkeypatch, lambda r: llm_ok_response())
 
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"), limit=2)
         write_report(run_dir)
 
         for path in run_dir.iterdir():
@@ -270,7 +376,7 @@ class TestBudget:
     ):
         install_llm(monkeypatch, lambda r: llm_ok_response())
 
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.002"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("1"), limit=1)
 
         strategy = run_json(run_dir)["strategies"][0]
         assert strategy["provider"] == "anthropic" and strategy["temperature"] == 0.0
@@ -279,6 +385,30 @@ class TestBudget:
         prices = {(p["provider"], p["model"]): p for p in run_json(run_dir)["prices"]}
         price = prices[("anthropic", "claude-haiku-4-5-20251001")]
         assert price["input_usd_per_mtok"] == "1" and price["output_usd_per_mtok"] == "5"
+
+
+class TestLimit:
+    def test_limit_ilk_n_ornegi_calistirir_ve_kayda_yazilir(self, tmp_path):
+        run_dir = do_run(tmp_path, strategy_names=("rule_based",), limit=3)
+
+        record = run_json(run_dir)
+        assert len(predictions(run_dir)) == 3 and record["dataset"]["limit"] == 3
+        assert record["dataset"]["n_samples"] == 3
+
+    def test_secim_deterministiktir_tohumlu_karistirma_farkli_ornekler_secer(self):
+        first = [s.id for s in select_samples("v1", ("dev",), limit=5)]
+
+        assert first == [s.id for s in select_samples("v1", ("dev",), limit=5)]
+        seeded = [s.id for s in select_samples("v1", ("dev",), shuffle_seed=3, limit=5)]
+        assert seeded == [s.id for s in select_samples("v1", ("dev",), shuffle_seed=3, limit=5)]
+        assert seeded != first and len(seeded) == 5
+
+    @pytest.mark.parametrize("value", [0, -2])
+    def test_gecersiz_limit_reddedilir(self, tmp_path, value):
+        with pytest.raises(ValueError, match="en az 1"):
+            do_run(tmp_path, strategy_names=("rule_based",), limit=value)
+
+        assert not any(tmp_path.iterdir())
 
 
 class TestInterruption:
@@ -334,16 +464,38 @@ class TestInterruption:
 class TestReport:
     def test_yarida_kalan_calistirma_uyarisi_ve_harcama_raporda(self, tmp_path, monkeypatch):
         install_llm(monkeypatch, lambda r: llm_ok_response())
-        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.005"))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.05"))
+        record = run_json(run_dir)
+        completed = record["dataset"]["n_samples_completed"]
 
         markdown, metrics = build_report(run_dir)
 
+        assert 0 < completed < DEV_SAMPLES
         assert "ÇALIŞTIRMA YARIDA KALDI" in markdown
-        assert "toplam harcama sınırına ulaşıldı" in markdown
-        assert "2/21 örnek tamamlandı" in markdown
-        assert "bilinen toplam 0,003800 USD, sınır 0,005000 USD" in markdown
+        assert "kalan harcama sınırını aşacaktı" in markdown
+        assert f"{completed}/21 örnek tamamlandı" in markdown
+        assert "sınır 0,050000 USD" in markdown and "Sınır yöntemi" in markdown
         assert metrics["stopped_early"]["reason"] == "budget"
+        assert metrics["budget"]["conservative_charges"] == 0
         assert "MOCK SONUÇLAR" not in markdown  # gerçek stratejiler mock değildir
+
+    def test_rapor_en_kotu_bedelle_sayilan_cagrilari_acikca_belirtir(self, tmp_path, monkeypatch):
+        install_llm(monkeypatch, lambda r: llm_ok_response(usage={}))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("0.1"))
+
+        markdown, _ = build_report(run_dir)
+
+        assert "en kötü durum bedeliyle sayıldı (ücretsiz sayılmadı)" in markdown
+
+    def test_rapor_ihlal_durdurmasini_ve_nedenini_gosterir(self, tmp_path, monkeypatch):
+        huge = usage_block(input_tokens=5_000_000)
+        install_llm(monkeypatch, lambda r: llm_ok_response(usage=huge))
+        run_dir = do_run(tmp_path, strategy_names=("llm_only",), max_cost_usd=Decimal("100"))
+
+        markdown, _ = build_report(run_dir)
+
+        assert "gerçek ücret rezerve edilen üst sınırı aştı" in markdown
+        assert "1 çağrıda gerçek ücret rezervasyonu aştı" in markdown
 
     def test_tam_calistirmada_yarim_kalma_uyarisi_yok(self, tmp_path):
         markdown, metrics = build_report(do_run(tmp_path, strategy_names=("rule_based",)))
@@ -378,12 +530,47 @@ class TestPlan:
         for line in lines.values():
             assert 0 < line.typical_low_usd <= line.typical_high_usd <= line.worst_usd
         jev, llm, hybrid = lines["jev_only"], lines["llm_only"], lines["hybrid"]
-        assert jev.worst_usd == jev.typical_low_usd * 3  # 3 deneme hakkı
+        assert (
+            jev.worst_usd > jev.typical_low_usd * 3
+        )  # rezervasyon üst sınırı tipik kestirimden geniş
         assert llm.typical_low_usd > jev.typical_low_usd  # LLM'in çıktısı ücretli, fiyatı yüksek
         assert hybrid.typical_low_usd == jev.typical_low_usd  # alt sınır: yalnızca Jev
         assert hybrid.typical_high_usd == jev.typical_low_usd + llm.typical_low_usd
         assert hybrid.worst_usd == jev.worst_usd + llm.worst_usd
         assert plan.worst_usd == sum(line.worst_usd for line in plan.lines)
+
+    def test_en_kotu_durum_ve_en_kucuk_sinir_butce_korumasiyla_ayni_hesaptan_gelir(self):
+        samples = [s for s in load_samples("v1") if s.split == "dev"]
+        llm, _ = llm_provider(lambda r: llm_ok_response())
+        per_sample = [3 * max_call_cost(llm, s.to_input()) for s in samples]
+
+        plan = estimate_plan(samples, ("llm_only",))
+
+        assert plan.lines[0].worst_usd == sum(per_sample)
+        assert plan.min_cap_usd == max(per_sample)  # en pahalı örnek: bu sınırın altında başlanamaz
+
+    def test_en_kucuk_sinir_birden_cok_stratejide_ayni_ornegin_toplamidir(self):
+        samples = [s for s in load_samples("v1") if s.split == "dev"][:3]
+        jev, _ = jev_provider(lambda r: jev_ok_response())
+        llm, _ = llm_provider(lambda r: llm_ok_response())
+        expected = max(
+            3 * max_call_cost(jev, s.to_input())  # jev_only
+            + 3 * max_call_cost(llm, s.to_input())  # llm_only
+            + 3 * (max_call_cost(jev, s.to_input()) + max_call_cost(llm, s.to_input()))  # hybrid
+            for s in samples
+        )
+
+        plan = estimate_plan(samples, PLANNABLE)
+
+        assert plan.min_cap_usd == expected
+
+    def test_plan_cikti_en_kucuk_siniri_ve_garanti_edilemeyenleri_soyler(self):
+        samples = [s for s in load_samples("v1") if s.split == "dev"][:3]
+
+        text = format_plan(estimate_plan(samples, ("llm_only",)))
+
+        assert "Harcama sınırı en az" in text and "başlanamaz" in text
+        assert "Garanti edilemeyenler" in text and "fiyat tablosunun güncelliği" in text
 
     def test_tahmin_yalniz_gercek_stratejiler_icin(self):
         with pytest.raises(ValueError, match="gerçek stratejiler"):
@@ -403,6 +590,11 @@ class TestPlan:
 
         out = capsys.readouterr().out
         assert "jev_only" in out and "llm_only" in out and "hybrid" in out and "TOPLAM" in out
+
+    def test_cli_plan_limit_ilk_n_ornegi_planlar(self, capsys):
+        assert main(["plan", "--splits", "dev", "--limit", "3", "--strategies", "llm_only"]) == 0
+
+        assert "Örnek sayısı: 3" in capsys.readouterr().out
 
 
 class TestCli:
@@ -437,6 +629,11 @@ class TestCli:
         assert code == 2
         assert "kapalı" in capsys.readouterr().err
         assert not any(tmp_path.iterdir())
+
+    def test_gecersiz_limit_acik_hata(self, tmp_path, capsys):
+        code = main(["run", "--strategies", "rule_based", "--limit", "0", "--out", str(tmp_path)])
+
+        assert code == 2 and "Örnek sınırı" in capsys.readouterr().err
 
     @pytest.mark.parametrize("value", ["abc", "0", "-1", "nan"])
     def test_gecersiz_sinir_reddedilir(self, value):

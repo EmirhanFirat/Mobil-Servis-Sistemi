@@ -25,14 +25,14 @@ MOCK_BANNER = (
 )
 
 STOP_REASONS = {
-    "budget": "toplam harcama sınırına ulaşıldı",
-    "unknown_cost": (
-        "maliyeti hesaplanamayan bir çağrı çıktı; harcama sınırı garanti edilemediği için durduruldu"
+    "budget": "bir sonraki karar/çağrı için en kötü durum ücreti kalan harcama sınırını aşacaktı",
+    "estimate_violated": (
+        "gerçek ücret rezerve edilen üst sınırı aştı; ücret tahmini varsayımı güvenilmez, durduruldu"
     ),
+    "unbounded": "ücretin üst sınırı hesaplanamadı (fiyat veya çıktı tavanı bilinmiyor), durduruldu",
     "interrupted": "çalıştırma elle kesildi",
     "error": "beklenmeyen bir hata oluştu",
 }
-
 LIMITATIONS = """\
 ## Sınırlamalar ve okuma notları
 
@@ -270,13 +270,31 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
     ]
     if budget.get("live"):
         lines.append(
-            f"- Harcama (gerçek çağrılar): bilinen toplam {usd(Decimal(budget['spent_known_usd']))} "
-            f"USD, sınır {usd(Decimal(budget['max_cost_usd']))} USD"
+            f"- Harcama (gerçek çağrılar): toplam {usd(Decimal(budget['spent_usd']))} USD "
+            f"(bunun {usd(Decimal(budget['known_spent_usd']))} USD'si sağlayıcı kullanımıyla "
+            f"hesaplandı), sınır {usd(Decimal(budget['max_cost_usd']))} USD; {budget['calls']} çağrı"
             + (
-                f"; **{budget['billable_calls_with_unknown_cost']} çağrının maliyeti bilinmiyor**"
-                if budget.get("billable_calls_with_unknown_cost")
+                f"; **{budget['conservative_charges']} çağrının ücreti bilinemediği için en kötü "
+                "durum bedeliyle sayıldı (ücretsiz sayılmadı)**"
+                if budget.get("conservative_charges")
                 else ""
             )
+            + (
+                f"; **{budget['bound_violations']} çağrıda gerçek ücret rezervasyonu aştı**"
+                if budget.get("bound_violations")
+                else ""
+            )
+        )
+        lines.append(
+            "- Sınır yöntemi: her çağrıdan (ve retry'dan) önce ücretin üst sınırı rezerve edilir; "
+            "garanti edilemeyenler için `app/decision/budget.py` başına ve `docs/DECISIONS.md` "
+            "D28'e bak."
+        )
+    if run.get("aborted_prediction"):
+        aborted = run["aborted_prediction"]
+        lines.append(
+            f"- Bütçe nedeniyle yarıda kesilen karar: `{aborted['strategy']}` / `{aborted['sample_id']}` "
+            f"({len(aborted['calls'])} çağrı harcandı; tahmin sayılmadı, kayıtlar `run.json`'da)."
         )
     if dropped:
         lines.append(

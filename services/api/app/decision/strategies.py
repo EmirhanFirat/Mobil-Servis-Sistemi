@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from app.decision.assemble import assemble
 from app.decision.contract import (
     ALL_QUESTIONS,
+    BudgetExhausted,
     CallRecord,
     Decision,
     DecisionInput,
@@ -127,6 +128,11 @@ class HybridStrategy:
                 llm_result, llm_calls = classify_with_retry(
                     self.llm, data, tuple(uncertain), self.name, self.retry, self.sleep
                 )
+            except BudgetExhausted as stop:
+                # Harcama sınırı bir hata değil durma sinyalidir: yutulmaz, Jev aşamasının
+                # (ücretlendirilmiş) çağrı kayıtlarıyla birlikte yukarı çıkar.
+                stop.calls = (*calls, *stop.calls)
+                raise
             except DecisionUnavailable as failure:
                 calls.extend(failure.calls)
                 reasons.append("llm_unavailable")

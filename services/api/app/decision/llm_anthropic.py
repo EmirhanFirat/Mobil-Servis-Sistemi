@@ -81,6 +81,10 @@ def _error_type(response: httpx.Response) -> str | None:
 class AnthropicProvider:
     name = "anthropic"
     prompt_version = PROMPT_VERSION
+    # Harcama üst sınırı (budget.py) için: zorunlu araç çağrısının sistem istemi token'ları (resmî
+    # fiyat sayfası, Haiku 4.5) ve istekteki sert çıktı tavanı.
+    fixed_overhead_tokens = 588
+    max_output_tokens = MAX_TOKENS
 
     def __init__(
         self,
