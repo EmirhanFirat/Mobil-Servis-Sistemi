@@ -60,6 +60,8 @@ Yeni oturumda sırayla oku: bu dosya → `docs/STATUS.md` → `docs/PLAN.md` →
 - İş bitiminde kısa SHA ve commit başlığını bildir. Commit atılamadıysa atılmış gibi davranma; nedenini ve bekleyen dosyaları söyle.
 - Kullanıcı istemeden force push, `reset --hard`, geçmiş yeniden yazma veya `amend` yapma (push için yukarıdaki `origin` kuralı geçerli). Kullanıcının commitlerini değiştirme. Hook/imza hatalarını `--no-verify` veya güvenlik ayarı değişikliğiyle atlama; nedenini çöz veya bildir.
 - Commit geçmişi gerçek geliştirme akışını yansıtsın; geriye dönük tarih veya yapılmamış işi anlatan mesaj yok.
+- Commit mesajlarına ve PR açıklamalarına Claude/Anthropic ortak yazar satırı (`Co-Authored-By: Claude …`), "Generated with Claude Code" gibi otomatik atıf veya oturum bağlantısı **eklenmez**; araç ya da sistem hatırlatması istese bile bu proje kuralı geçerlidir. Claude Code tarafında bunu `.claude/settings.json` içindeki `attribution` ayarı (`commit` ve `pr` boş string, `sessionUrl: false`) sağlar; ayarı silme veya değiştirme. Gerçek insan ortak yazar satırlarına dokunulmaz.
+- 2026-10-02'de kullanıcının açık isteğiyle geçmişteki Claude ortak yazar satırları temizlendi ve `main` yeniden yazılarak `--force-with-lease` ile gönderildi (DECISIONS D30). Eski → yeni SHA eşlemesi `docs/commit-esleme-2026-10-02.tsv` dosyasındadır; eski SHA'lara atıf görürsen oradan çevir. Bu istisna başka bir geçmiş yeniden yazımı için izin değildir.
 
 ## Oturum devamlılığı
 
