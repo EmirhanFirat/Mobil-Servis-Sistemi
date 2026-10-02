@@ -50,7 +50,7 @@ ew ve öncelik düşük kaldı), mock hibrit işi is_mock ve 1 çağrı kaydıyl
 
 ## Sıradaki somut adım
 
-**Gerçek Jev/LLM ile küçük canlı deneme — kullanıcının harcama sınırı onayını bekliyor (onay olmadan çalıştırılmaz).** Altyapı hazır ve çağrı başına rezervasyonla korunuyor (D28). Önerilen kapsam: `--splits dev --shuffle-seed 4 --limit 5` (5 farklı olay grubu: diğer, su/tesisat ×2, temizlik, elektrik; `--limit 3` ilk üçü). Maliyet planı (2026-10-02, `python -m app.evaluation plan`; **tahmindir, ölçüm değildir**; üç strateji toplamı):
+**Gerçek Jev/LLM ile küçük canlı deneme — harcama sınırı ONAYLANDI (2026-10-02, kullanıcı): ilk denemenin toplamı Jev + Anthropic çağrıları ve tekrarlar dahil en çok 0,10 USD (`--max-cost-usd 0.10`); Anthropic hesabındaki bakiyenin geri kalanı kullanılamaz.** Anthropic anahtarı kullanıcıda hazır ve yalnızca kullanıcının kendi terminal oturumunda gizli girişle tanımlanır (ajan değeri görmez); **Jev anahtarı henüz hazır değil, deneme Jev anahtarı gelince yapılır** (kullanıcı "önceki plana göre ilerleyelim" dedi: 5 örnek, `--shuffle-seed 4`, üç strateji). Başlamadan önce Jev ve Anthropic fiyat/belge doğrulaması yeniden yapılır. Altyapı hazır ve çağrı başına rezervasyonla korunuyor (D28). Önerilen kapsam: `--splits dev --shuffle-seed 4 --limit 5` (5 farklı olay grubu: diğer, su/tesisat ×2, temizlik, elektrik; `--limit 3` ilk üçü). Maliyet planı (2026-10-02, `python -m app.evaluation plan`; **tahmindir, ölçüm değildir**; üç strateji toplamı):
 
 | Örnek | Tipik (USD) | En kötü / rezervasyon üst sınırı (USD) | Başlamak için en küçük sınır (USD) |
 |---|---|---|---|
