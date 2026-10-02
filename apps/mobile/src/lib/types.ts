@@ -84,6 +84,8 @@ export interface TicketDetail extends TicketSummary {
   can_assign: boolean;
   can_edit: boolean;
   events: TicketEvent[];
+  /** Karar motoru ayrıntısı yalnızca yönetici yanıtında döner; mobil uygulama kullanmaz. */
+  decision?: unknown;
 }
 
 export interface TicketList {

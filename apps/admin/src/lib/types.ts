@@ -83,12 +83,76 @@ export interface TicketEvent {
   actor: Person | null
 }
 
+export type JobStatus = 'pending' | 'running' | 'succeeded' | 'failed'
+export type JobOutcome =
+  | 'decided'
+  | 'skipped_not_new'
+  | 'skipped_human_edit'
+  | 'failed_provider'
+  | 'failed_error'
+  | 'failed_worker_lost'
+export type ApplyOutcome = 'applied' | 'skipped_not_new' | 'skipped_human_edit'
+export type DecisionStrategy = 'rule_based' | 'llm_only' | 'jev_only' | 'hybrid'
+
+export interface DecisionJob {
+  /** Çalıştırılan strateji adı (rule_based, mock_hybrid, ...). */
+  strategy: string
+  status: JobStatus
+  outcome: JobOutcome | null
+  attempts: number
+  max_attempts: number
+  last_error: string | null
+  created_at: string
+  finished_at: string | null
+}
+
+export interface DecisionJudgment {
+  question: string
+  answer: string | boolean | null
+  probabilities: Record<string, number> | null
+  confidence: number | null
+  /** jev_confidence | derived_margin | self_reported: birbirine eşdeğer sayılmaz. */
+  confidence_kind: string | null
+  n_options: number | null
+  source: string | null
+  adopted: boolean
+}
+
+/** Karar motorunun İLK tahmini; talebin güncel alanlarından ayrıdır. */
+export interface Decision {
+  id: string
+  strategy: DecisionStrategy
+  job_strategy: string | null
+  is_mock: boolean
+  providers: string[]
+  model_versions: string[]
+  category: Category | null
+  priority: Priority | null
+  missing_info: string[]
+  review_required: boolean
+  review_reasons: string[]
+  applied_outcome: ApplyOutcome
+  applied_at: string | null
+  created_at: string
+  judgments: DecisionJudgment[]
+  calls_total: number
+  cost_known_usd: string | null
+  calls_with_unknown_cost: number
+}
+
+export interface DecisionPanelData {
+  job: DecisionJob | null
+  decision: Decision | null
+}
+
 export interface TicketDetail extends TicketSummary {
   description: string
   allowed_transitions: TicketStatus[]
   can_assign: boolean
   can_edit: boolean
   events: TicketEvent[]
+  /** Yalnızca yöneticiye döner (sunucu karar verir); diğer rollerde null. */
+  decision?: DecisionPanelData | null
 }
 
 export interface TicketList {

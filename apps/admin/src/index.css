@@ -431,12 +431,32 @@ tbody tr:hover {
 .badge-priority-low {
   color: var(--muted);
 }
+/* Karar kaynağı: mock açıkça uyarı renginde, gerçek model yeşil, kural tabanlı nötr-mavi. */
+.badge-source-mock {
+  background: color-mix(in srgb, #f59e0b 22%, transparent);
+  color: #b45309;
+}
+.badge-source-real {
+  background: color-mix(in srgb, #10b981 18%, transparent);
+  color: var(--success);
+}
+.badge-source-rule {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.reasons {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
 @media (prefers-color-scheme: dark) {
   .badge-needs_review {
     color: #fb923c;
   }
   .badge-in_progress {
     color: #b9a2ff;
+  }
+  .badge-source-mock {
+    color: #fbbf24;
   }
 }
 

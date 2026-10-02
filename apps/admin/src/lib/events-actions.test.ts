@@ -51,6 +51,22 @@ describe('describeEvent', () => {
     )
   })
 
+  it('karar motoru olayları: kaynak kural tabanlı/mock/gerçek ayrılır, hata görünür', () => {
+    const base = { team: 'plumbing', category: 'plumbing', priority: 'high' }
+    expect(describeEvent(event('decision_applied', { ...base, strategy: 'rule_based', is_mock: false }, null), vocab)).toBe(
+      'Karar motoru (kural tabanlı) talebi “Su/Tesisat Ekibi” ekibinin kuyruğuna yönlendirdi (kategori Su/Tesisat, öncelik Yüksek).',
+    )
+    expect(describeEvent(event('decision_applied', { ...base, strategy: 'hybrid', is_mock: true }, null), vocab)).toContain(
+      'Karar motoru (mock hibrit)',
+    )
+    expect(describeEvent(event('decision_applied', { strategy: 'llm_only', is_mock: false }, null), vocab)).toBe(
+      'Karar motoru (LLM) talebi insan incelemesine yönlendirdi.',
+    )
+    expect(describeEvent(event('decision_failed', { reason: 'failed_provider' }, null), vocab)).toBe(
+      'Karar motoru yanıt veremedi; talep insan incelemesine alındı.',
+    )
+  })
+
   it('sistem olayı ve bilinmeyen tür çökmez', () => {
     expect(describeEvent(event('created', {}, null), vocab)).toBe('Sistem talebi açtı.')
     expect(describeEvent(event('gelecekteki_olay', {}, null), vocab)).toBe('Sistem: gelecekteki_olay')

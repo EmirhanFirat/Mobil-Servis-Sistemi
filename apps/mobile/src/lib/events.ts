@@ -60,9 +60,44 @@ export function describeEvent(event: TicketEvent, vocab: Vocabulary): string {
       return `${who} ${name.toLowerCase()} alanını temizledi.`;
     }
 
+    case 'decision_applied': {
+      const source = decisionSourceName(data);
+      const summary = decisionSummary(data, vocab);
+      const team = text(data.team);
+      return team
+        ? `Karar motoru (${source}) talebi “${labelOf(vocab.teams, team)}” ekibinin kuyruğuna yönlendirdi${summary}.`
+        : `Karar motoru (${source}) talebi insan incelemesine yönlendirdi${summary}.`;
+    }
+
+    case 'decision_failed':
+      return 'Karar motoru yanıt veremedi; talep insan incelemesine alındı.';
+
     default:
       return `${who}: ${event.kind}`;
   }
+}
+
+const STRATEGY_NAMES: Record<string, string> = {
+  llm_only: 'LLM',
+  jev_only: 'Jev',
+  hybrid: 'hibrit',
+};
+
+/** Olayın karar kaynağı: kural tabanlı, mock (sahte) ya da gerçek strateji adı. */
+function decisionSourceName(data: Data): string {
+  const strategy = text(data.strategy) ?? 'bilinmeyen';
+  if (strategy === 'rule_based') return 'kural tabanlı';
+  const name = STRATEGY_NAMES[strategy] ?? strategy;
+  return data.is_mock === true ? `mock ${name}` : name;
+}
+
+function decisionSummary(data: Data, vocab: Vocabulary): string {
+  const parts: string[] = [];
+  const category = text(data.category);
+  const priority = text(data.priority);
+  if (category) parts.push(`kategori ${labelOf(vocab.categories, category)}`);
+  if (priority) parts.push(`öncelik ${labelOf(vocab.priorities, priority)}`);
+  return parts.length > 0 ? ` (${parts.join(', ')})` : '';
 }
 
 /** Olaya iliştirilmiş serbest metin notu (varsa). */

@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 
 import type { ApiClient } from './lib/api'
 import type {
+  Decision,
   TeamWithMembers,
   TicketDetail,
   Vocabulary,
@@ -86,6 +87,30 @@ export function makeTicket(overrides: Partial<TicketDetail> = {}): TicketDetail 
     can_assign: true,
     can_edit: true,
     events: [],
+    ...overrides,
+  }
+}
+
+export function makeDecision(overrides: Partial<Decision> = {}): Decision {
+  return {
+    id: 'd1',
+    strategy: 'rule_based',
+    job_strategy: 'rule_based',
+    is_mock: false,
+    providers: ['rule_based'],
+    model_versions: ['kurallar-v1'],
+    category: 'plumbing',
+    priority: 'high',
+    missing_info: [],
+    review_required: false,
+    review_reasons: [],
+    applied_outcome: 'applied',
+    applied_at: '2026-10-02T10:00:00Z',
+    created_at: '2026-10-02T10:00:00Z',
+    judgments: [],
+    calls_total: 0,
+    cost_known_usd: null,
+    calls_with_unknown_cost: 0,
     ...overrides,
   }
 }

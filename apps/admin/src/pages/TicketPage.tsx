@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
+import { DecisionCard } from '../components/DecisionCard'
 import {
   AssignPanel,
   CorrectionPanel,
@@ -84,6 +85,7 @@ export default function TicketPage() {
       <div className="columns">
         <div className="stack">
           <Details ticket={data} />
+          <DecisionCard panel={data.decision} vocab={vocab} />
           <History ticket={data} vocab={vocab} />
         </div>
         <div className="stack">

@@ -92,6 +92,32 @@ describe('describeEvent', () => {
     );
   });
 
+  it('karar motoru: ekip kuyruğuna yönlendirme; kaynak kural tabanlı, mock veya gerçek olarak ayrılır', () => {
+    const base = { team: 'plumbing', category: 'plumbing', priority: 'high' };
+
+    expect(describeEvent(event('decision_applied', { ...base, strategy: 'rule_based', is_mock: false }, null), vocab)).toBe(
+      'Karar motoru (kural tabanlı) talebi “Su/Tesisat Ekibi” ekibinin kuyruğuna yönlendirdi (kategori Su/Tesisat, öncelik Yüksek).',
+    );
+    expect(describeEvent(event('decision_applied', { ...base, strategy: 'hybrid', is_mock: true }, null), vocab)).toContain(
+      'Karar motoru (mock hibrit)',
+    );
+    expect(describeEvent(event('decision_applied', { ...base, strategy: 'jev_only', is_mock: false }, null), vocab)).toContain(
+      'Karar motoru (Jev)',
+    );
+  });
+
+  it('karar motoru: ekip yoksa incelemeye yönlendirme; eksik alanlar cümleyi bozmaz', () => {
+    expect(describeEvent(event('decision_applied', { strategy: 'rule_based', is_mock: false }, null), vocab)).toBe(
+      'Karar motoru (kural tabanlı) talebi insan incelemesine yönlendirdi.',
+    );
+  });
+
+  it('karar motoru hatası görünür: talep insan incelemesine alındı', () => {
+    expect(describeEvent(event('decision_failed', { reason: 'failed_provider' }, null), vocab)).toBe(
+      'Karar motoru yanıt veremedi; talep insan incelemesine alındı.',
+    );
+  });
+
   it('sözlükte olmayan kod için kodun kendisini gösterir (boş bırakmaz)', () => {
     expect(describeEvent(event('status_changed', { from: 'new', to: 'yeni_durum' }), vocab)).toContain('“yeni_durum”');
   });
