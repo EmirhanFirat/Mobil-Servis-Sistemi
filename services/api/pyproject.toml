@@ -13,6 +13,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Testlerde uzun Türkçe örnek metinler okunabilirlik için tek satırda kalır.
+"tests/**" = ["E501"]
+
 [tool.ruff.lint.isort]
 # Yerel "alembic/" klasörü (migration'lar) paket adıyla çakıştığı için açıkça belirtilir.
 known-third-party = ["alembic"]

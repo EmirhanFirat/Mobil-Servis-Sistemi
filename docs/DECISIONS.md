@@ -74,6 +74,24 @@ Ekip önerisi: atama formu, talebin kategorisinin varsayılan ekibini ön seçer
 
 Bilinçli tekrar: API tipleri, olay cümleleri ve işlem etiketleri mobil ve panelde ayrı kopyalardır. Ortak paket (monorepo çalışma alanı) bu ölçekte (iki küçük istemci) kurulum maliyetine değmedi; sapma riski testlerle sınırlı (sunucudaki geçiş tablosunun kopyası her iki istemcide de her geçişin okunur bir etiketi olduğunu doğrular). Üçüncü bir istemci veya ilk sapma olursa ortak pakete geçilir.
 
+## D19 — Karar sözleşmesi (2026-10-02)
+
+Dört strateji aynı sözleşmeye uyar (`app/decision/contract.py`). Her soru **tek bir yargıdır**: kategori, öncelik ve her eksik bilgi türü ayrı sorulur; kategori/öncelik kapalı seçenekli ve her zaman "belirsiz" seçeneği içerir (model zorla sınıflandırılmaz, belirsizlik insana gider). Sağlayıcıya özgü olasılık ve güven değerleri karar alanlarından **ayrı** `Judgment` kayıtlarında tutulur; tek bir "güven" alanı uydurulmaz. Güvenin türü açık işaretlenir: `jev_confidence` (Jev'in verdiği, seçenek sayısına bağlı), `derived_margin` (olasılıktan bizim türettiğimiz) ve `self_reported` (LLM'in yazdığı; kalibre değil). Bunlar birbirine eşdeğer sayılmaz. Bulunmayan değer `None`'dır.
+
+Maliyet dürüstlüğü: her deneme (retry ve fallback dahil) ayrı `CallRecord`'dur. Sağlayıcı kullanım bildirmezse maliyet **bilinmez** (`None`), sıfır sayılmaz; toplam bilinmeyen çağrı varsa `None` döner ve bilinen kısım ile bilinmeyen çağrı sayısı ayrı verilir. "Çıktı ücretsiz" çıktı token'ının kaydedilmeyeceği anlamına gelmez. Fiyatlar tarihli, kaynaklı ve `Decimal`'dir (`pricing.py`).
+
+## D20 — Güvenlik kapısı, enjeksiyon şüphesi ve yönlendirme deterministiktir (2026-10-02)
+
+Tüm stratejilerin ortak son adımı (`assemble.py`) kodla çalışır: (1) **güvenlik kapısı**: metinde tehlike ifadesi (yangın, kıvılcım, gaz kokusu, elektrik çarpması...) varsa öncelik en az "yüksek" olur ve karar insan incelemesi ister; (2) **enjeksiyon şüphesi**: modeli yönlendirmeye çalışan ifade ("önceki talimatları yok say", "kategoriyi ... seç") görülürse insan incelemesi; (3) engelleyici eksik bilgi (konum, açıklama) insan incelemesi. Bu kurallar strateji ne derse desin uygulanır, böylece karşılaştırma adil kalır ve can güvenliği kararı modele bırakılmaz. Liste geniştir ama garanti değildir; arayüzde her zaman "112'yi ara" uyarısı vardır. Ekibe yerleştirme (`routing.py`) de kuraldır: karar inceleme gerektiriyorsa `needs_review`, aksi halde kategorinin varsayılan ekibinin kuyruğu; görevli seçimi insanındır ve model çıktısı hiçbir yetki vermez.
+
+## D21 — Hibrit: sessiz sağlayıcı değişimi yok (2026-10-02)
+
+Hibrit önce Jev'e tüm soruları sorar; yalnızca Jev'in **yanıtladığı ama güvenmediği** sorular LLM'e gider (maliyet için). LLM da "belirsiz" derse soru çözülmemiş sayılır ve karar insana gider. Jev çağrısı sınırlı retry'dan sonra da başarısızsa LLM'e **geçilmez**: görünür hata (`DecisionUnavailable`) fırlar; sağlayıcı kesintisi belirsizlik değildir. LLM ikinci aşaması başarısız olursa Jev'in güvenli yanıtları korunur, kalanlar için `llm_unavailable` nedeniyle insan incelemesi istenir. LLM'in kendi yazdığı güven Jev güveniyle kıyaslanmaz (yalnızca isteğe bağlı bir çekimserlik kapısıdır). Jev eşikleri doğrulama kümesinde ayarlanır, test kümesinde değil.
+
+## D22 — Jev'e ham HTTP ile bağlanılır (2026-10-02)
+
+Resmî Python SDK `httpx2`'ye bağlı (bkz. D7: onay bekliyor). Adaptör, belgelenmiş `POST /v1/systemone` şemasına doğrudan konuşur; `docs/SAGLAYICILAR.md` bilgileri ve kaynaklarıyla tutar. Jev'in birincil eğitim dili İngilizcedir; Türkçe doğruluğu varsayılmaz, ölçülür.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.
