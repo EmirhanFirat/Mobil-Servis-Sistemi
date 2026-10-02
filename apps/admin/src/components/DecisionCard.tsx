@@ -7,6 +7,7 @@ import {
   jobLine,
   questionText,
   reasonText,
+  unresolvedQuestions,
 } from '../lib/decision'
 import { formatDateTime, labelOf } from '../lib/format'
 import type { DecisionPanelData, Vocabulary } from '../lib/types'
@@ -53,6 +54,7 @@ function DecisionBody({
 }) {
   const source = decisionSource(decision)
   const missing = decision.missing_info.map((code) => labelOf(vocab.missing_info, code))
+  const unresolved = unresolvedQuestions(decision.judgments)
 
   return (
     <>
@@ -73,6 +75,18 @@ function DecisionBody({
         <dd>{decision.priority ? labelOf(vocab.priorities, decision.priority) : 'Belirsiz'}</dd>
         <dt>Eksik bilgi</dt>
         <dd>{missing.length > 0 ? missing.join(', ') : '—'}</dd>
+        {unresolved.length > 0 ? (
+          <>
+            <dt>Kesin yanıt yok</dt>
+            <dd>
+              {unresolved.map(questionText).join(' · ')}
+              <p className="muted">
+                Bu sorular için karara alınmış kesin bir cevap yok (belirsiz, çekimser veya sorulmadı).
+                “Eksik bilgi” satırında görünmemeleri “eksik değil” anlamına gelmez.
+              </p>
+            </dd>
+          </>
+        ) : null}
         <dt>İnceleme</dt>
         <dd>
           {decision.review_required ? (

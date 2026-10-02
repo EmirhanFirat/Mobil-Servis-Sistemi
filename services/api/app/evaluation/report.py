@@ -286,6 +286,17 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
         f"yeniden deneme: en çok {run['config']['retry']['max_attempts']} deneme",
         "- Stratejiler: " + ", ".join(f"`{s['name']}`" for s in run["strategies"]),
     ]
+    # Yönlendirme sürümü yalnızca kaydında alan olan çalıştırmalarda yazılır (v2 ve sonrası). Eski
+    # kayıtlarda alan yoktur (v1) ve geçmiş raporlar bayt bayt aynı yeniden üretilebilsin diye
+    # raporlarına satır eklenmez.
+    for strategy in run["strategies"]:
+        if strategy.get("kind") == "hybrid" and strategy.get("routing_version"):
+            thresholds = ", ".join(f"{q}={v}" for q, v in strategy["thresholds"].items())
+            lines.append(
+                f"- Hibrit yönlendirme `{strategy['routing_version']}` (`{strategy['name']}`): LLM'e "
+                f"geçişi tetikleyebilen sorular: {', '.join(strategy['escalate_on']) or 'yok'}; "
+                f"Jev güven eşikleri: {thresholds}"
+            )
     if budget.get("live"):
         lines += [
             f"- **Bütçe defteri `{budget.get('budget_id')}`** — toplam sınır "

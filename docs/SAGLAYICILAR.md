@@ -65,6 +65,24 @@ Kaynaklar: https://platform.claude.com/docs/en/about-claude/pricing, `/about-cla
 - **Anahtar:** yalnızca `TALEPAKIS_ANTHROPIC_API_KEY` ortam değişkeni ve `TALEPAKIS_PAID_MODEL_CALLS_ENABLED=true` birlikte. Standart `ANTHROPIC_API_KEY` **bilerek okunmaz**: başka araçlar için tanımlı bir anahtar bu projede kazara ücretli çağrı yapmasın. Hata mesajlarına sunucu gövdesi konmaz; yalnızca durum kodu ve sınırlı `error.type`.
 - **Durum:** adaptör (`app/decision/llm_anthropic.py`, `llm_prompt.py`) yazıldı ve `httpx.MockTransport` ile test edildi. 2026-10-02'de tek bir 5 örneklik bağlantı denemesinde **10 gerçek çağrı** yapıldı (10'u başarılı, zorunlu araç çağrısı beklenen şemada döndü, retry yok, token kullanımı sağlayıcıdan geldi, bilinen ücret ≈ 0,020990 USD). 10 çağrı araç çağrısına uyma oranını, Türkçedeki doğruluğu veya fiyat/performansı **ölçmek için yetersizdir**.
 
+## Güven sinyalleri: hangi soruda kim ne veriyor (2026-10-02)
+
+Hibritin eşiği (`HybridThresholds.jev_min_confidence`) **Jev'in verdiği güvenle** karşılaştırılır; ama her soru türünde bu sayı farklı yerden gelir ve aynı değer aynı olasılık anlamına gelmez. Tablo, resmî Jev belgesindeki (`/confidence.md`, `/primitives/choice.md`) tanımı ve ilk gerçek denemenin (2026-10-02, 5 örnek, 10 Jev çağrısı) verisiyle yapılan kontrolü birleştirir.
+
+| Soru | Jev'in cevap türü | Jev'in **kendi** verdiği sinyal | **Bizim** türettiğimiz sinyal | Eşik 0,6 ne demek (en büyük olasılık) | LLM'in sinyali |
+|---|---|---|---|---|---|
+| `category` | Choice, 6 seçenek | `probabilities` ve Jev'in `confidence` değeri (`jev_confidence`) | yok | p_max ≥ 0,667 | modelin yazdığı sayı (`self_reported`), olasılık yok |
+| `priority` | Choice, 4 seçenek | aynı | yok | p_max ≥ 0,70 | aynı |
+| `missing_location`, `missing_detail`, `missing_contact`, `missing_timing` | Noul (evet/hayır) | yalnızca `noul` olasılığı (p_evet); **`confidence` yok** | **`derived_margin` = \|2·p_evet − 1\|** (`derived_margin`) | p_evet ≥ 0,80 veya ≤ 0,20 | aynı (`self_reported`) |
+
+- **Jev güven formülü:** `confidence = (p_max − 1/n) / (1 − 1/n)`, n seçenek sayısı. Bu yüzden n'e bağlıdır; aynı güven değeri 6 seçenekte p_max = 0,667, 4 seçenekte 0,70, 2 seçenekte 0,80 ister (`contract.probability_floor` bu dönüşümü yapar). **Aynı eşiği tüm sorulara uygulamak, evet/hayır sorularını seçenekli sorulardan daha sıkı sınar.**
+- **Evet/hayır güveni bizim hesabımızdır, Jev'in değil.** Biçimce Jev'in formülünün n = 2 hâliyle aynı sayıdır (p_max = max(p, 1−p) için (p_max − 0,5)/0,5 = \|2p − 1\|), ama Jev bunu üretmedi ve olasılıkların **kalibre olduğu doğrulanmadı**. `confidence_kind` alanı bu farkı kayıtta taşır; `derived_margin` ile `jev_confidence` birbirine eşdeğer sayılmaz.
+- **Gerçek veriyle kontrol (ilk deneme):** 20 seçenekli yargıda Jev'in `confidence` değeri ile formül arasındaki en büyük fark 0,013'tür; bu, Jev'in olasılıkları 2 ondalığa yuvarlamasıyla uyumludur (formül tutuyor). 40 evet/hayır yargısının hepsinde kayıtlı güven \|2p − 1\| ile aynı çıktı.
+- **Betimleyici gözlem (kanıt değil, 10 Jev çağrısı):** `missing_location` p_max değerleri 0,94–0,97, `missing_detail` 0,88–0,93, `missing_timing` 0,84–0,92; `missing_contact` ise 0,59–0,76. Yani 0,6 eşiği iletişim sorusunda sistematik olarak "güvenilmez" çıktı (güven 0,18–0,52), diğer üçünde "güvenilir". Bu, ilk denemedeki 5/5 gereksiz LLM geçişinin nedeniydi; eşiğin kendisi bu beş örneğe bakılarak **değiştirilmedi** (bkz. DECISIONS D31).
+- **Aynı istek, farklı olasılık:** Jev, aynı isteğe iki kez (jev_only ve hibritin Jev aşaması) en çok 0,07 olasılık farkıyla yanıt verdi; cevaplar aynıydı. Eşik sınırındaki bir yargı çağrıdan çağrıya farklı tarafta kalabilir.
+- **LLM sinyali eşikle karşılaştırılmaz.** Hibritte LLM'in yazdığı güven yalnızca isteğe bağlı bir çekimserlik kapısıdır (`llm_min_self_reported`, varsayılan kapalı). Aynı soruya LLM, tek başına sorulduğunda ve altı soruyla birlikte sorulduğunda farklı cevap verebildi (ilk deneme, s003, iletişim sorusu): soru bağlamı yanıtı etkileyebilir.
+- **Eşik soru bazında ayarlanır, şimdilik provizyoneldir:** varsayılan her soru için 0,6 (`DEFAULT_JEV_MIN_CONFIDENCE`, hiçbir veriyle ayarlanmadı). Gerçek seçim **doğrulama (val) bölümünde, soru bazında** yapılır; komut satırında `--hybrid-threshold SORU=DEĞER` ile verilir ve `run.json`'a yazılır. Test bölümüne bakılarak eşik ayarlanmaz.
+
 ## Anahtar ve bakiye (2026-10-02 araştırması)
 
 | | Anthropic | Jev (TypeSafe) |

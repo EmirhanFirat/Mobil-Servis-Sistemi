@@ -7,7 +7,7 @@ import pytest
 
 from app.config import Settings
 from app.decision.budget import max_call_cost, worst_decision_cost
-from app.decision.contract import ALL_QUESTIONS, StrategyName
+from app.decision.contract import ALL_QUESTIONS, DECISION_QUESTIONS, StrategyName
 from app.decision.factory import MissingApiKey, PaidCallsDisabled
 from app.decision.retry import RetryPolicy
 from app.decision.strategies import HybridStrategy, HybridThresholds, ProviderStrategy
@@ -546,8 +546,12 @@ class TestPlan:
         )  # rezervasyon üst sınırı tipik kestirimden geniş
         assert llm.typical_low_usd > jev.typical_low_usd  # LLM'in çıktısı ücretli, fiyatı yüksek
         assert hybrid.typical_low_usd == jev.typical_low_usd  # alt sınır: yalnızca Jev
-        assert hybrid.typical_high_usd == jev.typical_low_usd + llm.typical_low_usd
-        assert hybrid.worst_usd == jev.worst_usd + llm.worst_usd
+        # Üst sınır: her örnekte Jev + TEK LLM çağrısı, ama yalnızca karar soruları (altı değil dört
+        # soru) gider; bu yüzden altı soruluk llm_only'den ucuzdur.
+        assert jev.typical_low_usd < hybrid.typical_high_usd
+        assert hybrid.typical_high_usd < jev.typical_low_usd + llm.typical_low_usd
+        assert hybrid.worst_usd < jev.worst_usd + llm.worst_usd
+        assert hybrid.worst_usd > jev.worst_usd
         assert plan.worst_usd == sum(line.worst_usd for line in plan.lines)
 
     def test_en_kotu_durum_ve_en_kucuk_sinir_butce_korumasiyla_ayni_hesaptan_gelir(self):
@@ -564,10 +568,16 @@ class TestPlan:
         samples = [s for s in load_samples("v1") if s.split == "dev"][:3]
         jev, _ = jev_provider(lambda r: jev_ok_response())
         llm, _ = llm_provider(lambda r: llm_ok_response())
+        decision_questions = tuple(q for q in ALL_QUESTIONS if q in DECISION_QUESTIONS)
         expected = max(
             3 * max_call_cost(jev, s.to_input())  # jev_only
             + 3 * max_call_cost(llm, s.to_input())  # llm_only
-            + 3 * (max_call_cost(jev, s.to_input()) + max_call_cost(llm, s.to_input()))  # hybrid
+            # hibrit: Jev tüm sorularla, LLM aşaması yalnızca karar sorularıyla
+            + 3
+            * (
+                max_call_cost(jev, s.to_input())
+                + max_call_cost(llm, s.to_input(), decision_questions)
+            )
             for s in samples
         )
 

@@ -79,11 +79,14 @@ def max_call_cost(
 
 def worst_decision_cost(strategy: object, data: DecisionInput) -> Decimal:
     """Bir stratejinin BİR karar için en kötü durum ücreti: her çağrı tüm deneme hakkını kullanır
-    (hibritte hem Jev hem LLM aşaması, tüm sorularla)."""
+    (hibritte Jev tüm sorularla; LLM aşaması, tetikleyebilen TÜM sorularla = `escalate_on`)."""
     if isinstance(strategy, ProviderStrategy):
         return strategy.retry.max_attempts * max_call_cost(strategy.provider, data)
     if isinstance(strategy, HybridStrategy):
-        per_attempt = max_call_cost(strategy.jev, data) + max_call_cost(strategy.llm, data)
+        per_attempt = max_call_cost(strategy.jev, data)
+        llm_questions = tuple(q for q in ALL_QUESTIONS if q in strategy.thresholds.escalate_on)
+        if llm_questions:  # hiçbir soru tetikleyemiyorsa LLM aşaması hiç çağrılmaz
+            per_attempt += max_call_cost(strategy.llm, data, llm_questions)
         return strategy.retry.max_attempts * per_attempt
     return Decimal(0)  # kurallı taban: çağrı yok
 

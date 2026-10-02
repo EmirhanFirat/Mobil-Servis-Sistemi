@@ -37,14 +37,20 @@ from app.decision.budget import (
     worst_decision_cost,
 )
 from app.decision.budget_ledger import BudgetLedger
-from app.decision.contract import BudgetExhausted, DecisionInput, DecisionUnavailable, StrategyName
+from app.decision.contract import (
+    ALL_QUESTIONS,
+    BudgetExhausted,
+    DecisionInput,
+    DecisionUnavailable,
+    StrategyName,
+)
 from app.decision.factory import anthropic_provider_from_settings, jev_provider_from_settings
 from app.decision.pricing import PRICES
 from app.decision.registry import FREE_STRATEGY_BUILDERS
 from app.decision.retry import DEFAULT_RETRY
 from app.decision.rule_based import RULES_VERSION, RuleBasedStrategy
 from app.decision.serialize import call_to_dict, decision_to_dict
-from app.decision.strategies import HybridStrategy, ProviderStrategy
+from app.decision.strategies import HybridStrategy, HybridThresholds, ProviderStrategy
 from app.evaluation.dataset import (
     SPLITS,
     Sample,
@@ -120,7 +126,10 @@ def describe_strategy(name: str, strategy: object) -> dict:
                 "model": strategy.llm.model,
                 "prompt_version": strategy.llm.prompt_version,
             },
+            routing_version=strategy.routing_version,
             thresholds={q.value: v for q, v in strategy.thresholds.jev_min_confidence.items()},
+            # LLM'e geçişi tetikleyebilen sorular (ürün kararını etkileyenler), kararlı sırayla.
+            escalate_on=[q.value for q in ALL_QUESTIONS if q in strategy.thresholds.escalate_on],
             llm_min_self_reported=strategy.thresholds.llm_min_self_reported,
         )
         if hasattr(strategy.llm, "temperature"):
@@ -238,6 +247,7 @@ def run_evaluation(
     budget_id: str | None = None,
     budget_dir: Path | None = None,
     limit: int | None = None,
+    hybrid_thresholds: HybridThresholds | None = None,
     settings: Settings | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     git: Callable[[], dict] = git_state,
@@ -281,6 +291,11 @@ def run_evaluation(
             strategies[name] = LIVE_STRATEGY_BUILDERS[name](live_settings)
         else:
             strategies[name] = STRATEGY_BUILDERS[name]()
+    if hybrid_thresholds is not None:
+        # Soru bazında ayarlanmış eşikler (doğrulama çalışması). run.json'a yazılır.
+        for strategy in strategies.values():
+            if isinstance(strategy, HybridStrategy):
+                strategy.thresholds = hybrid_thresholds
     started = now()
     run_id = f"{started.strftime('%Y%m%dT%H%M%SZ')}-{version}-{'+'.join(splits)}"
     out_dir = (out_root or repo_root() / "evaluation" / "runs") / run_id

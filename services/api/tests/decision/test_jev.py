@@ -357,13 +357,14 @@ class TestRetryIntegration:
         assert len(seen) == 1
 
     def test_hibrit_gercek_jev_adaptoruyle_ve_mock_llm_ile_calisir(self):
-        # Jev kategoriye emin ama eksik bilgi sorularına eşik altında → yalnızca onlar LLM'e gider.
+        # Jev kategoriye emin ama "açıklama yetersiz mi?" sorusunda eşik altında (karar sorusu)
+        # → yalnızca o soru LLM'e gider.
         jev, _ = provider(lambda r: ok_response())
         llm = MockProvider("llm")
         thresholds = HybridThresholds(
             {
                 **dict.fromkeys(ALL_QUESTIONS, 0.0),
-                Question.MISSING_CONTACT: 0.9,  # Jev'in kenar payı 0,6 → güvenilmez
+                Question.MISSING_DETAIL: 0.95,  # Jev'in kenar payı 0,90 → güvenilmez
             }
         )
 
@@ -372,7 +373,7 @@ class TestRetryIntegration:
         assert decision.providers == ("jev", "mock-llm")
         assert llm.call_count == 1
         assert [c.questions for c in decision.calls if c.provider == "mock-llm"] == [
-            (Question.MISSING_CONTACT,)
+            (Question.MISSING_DETAIL,)
         ]
         assert decision.is_mock  # karışık: bir çağrı mock → karar mock olarak işaretlenir
 
