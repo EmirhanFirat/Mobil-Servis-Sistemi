@@ -138,6 +138,16 @@ Görünürlük: olay geçmişi (talep sahibi dahil herkes görür) yalnızca sis
 
 Sınırlar: worker şimdilik yalnızca ücretsiz stratejileri çalıştırır (`FREE_STRATEGY_NAMES`; ayar doğrulaması gerçek stratejileri reddeder, veritabanına elle yazılmış `llm_only` işi `UnknownStrategy` ile başarısız olur) — gerçek Jev/LLM ürün akışına, ürün için tasarlanmış bir harcama koruması olmadan bağlanmaz. Worker sağlayıcı çağrısı ile kayıt arasında çökerse o denemenin çağrı/maliyet kaydı kaybolur (ücretsiz stratejilerde etkisiz). Beklenmeyen hatalarda iş düzeyinde yeniden deneme 30 sn'den başlayan üstel beklemeyle (en çok 5 dk), yalnızca hata türü kaydedilir.
 
+## D30 — Geçmişteki Claude ortak yazar satırları temizlendi; yeni commitlere eklenmez (2026-10-02)
+
+Kullanıcı, commit geçmişinde Claude'u ortak yazar gösteren `Co-Authored-By: Claude … <noreply@anthropic.com>` satırlarının kaldırılmasını ve bundan sonra eklenmemesini açıkça istedi. `AGENTS.md`'nin "geçmiş yeniden yazma ve force push kullanıcı istemeden yapılmaz" kuralı bu istekle bu iş için aşıldı; başka bir geçmiş yeniden yazımı için geçerli bir izin değildir.
+
+Yöntem (geri alınabilir ve doğrulanabilir olsun diye): önce repo dışında `git bundle` yedeği alındı ve doğrulandı; temizlik asıl depoda değil geçici klonda `git commit-tree` ile yapıldı (`filter-branch` yerine, her commitin tree'sini, author/committer satırını ve tarihini aynen taşımak ve eşlemeyi açıkça üretmek için). Yalnızca ad kısmı `Claude` ile başlayan ve e-postası tam `noreply@anthropic.com` olan satırlar kaldırıldı; mesajın kalanı, dosyalar ve geçmişin yapısı korundu. Mesajı ve ebeveyni değişmeyen `Initial commit` (GitHub imzalı) aynı SHA'da kaldı. Sonuç: 17 commit, 16'sı yeni SHA, 16 satır kaldırıldı; her çiftte tree aynı. Uzak depo yalnızca `main` için, işlem başında okunan SHA'yı açıkça bekleyen `--force-with-lease` ile güncellendi (başka dal/tag yoktu); eşleme `docs/commit-esleme-2026-10-02.tsv` dosyasındadır.
+
+Bundan sonrası: Claude Code'un belgelenmiş `attribution` ayarı (`commit` ve `pr` boş string = atıfı gizler; `sessionUrl: false`) proje düzeyinde `.claude/settings.json` içinde ayarlandı; eski `includeCoAuthoredBy` kullanımdan kaldırılmış olduğu için kullanılmadı. Kural ayrıca `AGENTS.md`'de yazılıdır, çünkü ayar tek başına her araç sürümünde garanti değildir.
+
+Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; yerelde eski geçmiş reflog'da ve yedek bundle'dadır.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

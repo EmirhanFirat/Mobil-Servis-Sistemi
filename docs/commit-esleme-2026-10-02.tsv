@@ -1,0 +1,18 @@
+eski_sha	yeni_sha	degisti	kaldirilan_satir	baslik
+6849276996c054d30a012a2489a9ea18312efa31	6849276996c054d30a012a2489a9ea18312efa31	hayir	0	Initial commit
+8d52920ed535f0716d8c89140593348addbf663e	1f73ff9d558fa7d10047ceebeab4facd1d0d834c	evet	1	Proje iskeleti ve çalışan API sağlık kontrolü eklendi
+cd4986940294d4e15baad5b29072409e8bdf26a4	3f5b7f28e0ad7c957a3a14e0daba910658b6107d	evet	1	Uzak depo bilgisini ve push kuralını ajan talimatlarına ekledim
+828b7d68988d1d407ca3b0e4fbee81abe7c7201c	c8aa91981c139e9a58edf6810e7a74506772f8c5	evet	1	Giriş, roller ve yetkilendirmeli talep akışı eklendi
+b4a32ff0e8f1751ab6baf0fcd17db2adb3488a3a	c4e21015025a5c5ddda757e10c8c1b9684af19cf	evet	1	Talep geçmişinde görevli ve ekip adları okunur hale geldi
+c9fdc44ec2bcc8526167a8512a115b1636ab9da1	88f2b1a7acb79d8cceae567bddbe1d5ff273649e	evet	1	Mobil uygulama eklendi: talep açma, takip ve görevli iş listesi
+caac0aeb48638468dd234bbf5b17ed7969fc8c5d	8f5113da558216e8f3f801f74b11861ca6c060aa	evet	1	Yönetici paneli eklendi: talep düzeltme, ekip atama ve kullanıcı yönetimi
+fc45d6d4cfa05041a91822943abb37d50346dc17	a8c1b58b181fa3d1ec999c54f08b9fa9126ad74b	evet	1	Karar motorunun çekirdeği eklendi: ortak sözleşme, kurallı taban, mock ve hibrit akış
+99b935d01cf1bf8680d05bdbee7374d8901fe6a6	14b427fa6f2b21bda4b184576aed09606b04e194	evet	1	Jev adaptörü eklendi; ücretli çağrılar varsayılan olarak kapalı
+9d11dd7be56306e53a0fc4c9de11cb4cbe75d625	34e2a1e3bb7aa83d48db2996669c3cceaa63d0c1	evet	1	Değerlendirme altyapısı ve 54 örneklik Türkçe veri seti eklendi
+f4041af06a55c65dfc335aedf54ead34599aac81	420539bbcf70e8a86ea183772b28c61a5e632cba	evet	1	Ekonomik LLM adaptörü eklendi (Claude Haiku 4.5, ham HTTP)
+38e5e107c4a09dadf41b8ba363208354c7aacab5	7579c15f38e33994c94cb624307d3f526578e073	evet	1	Gerçek stratejiler değerlendirmeye zorunlu harcama sınırıyla eklendi
+f0c33d806fdbfb927046e5aac31f236640fa960f	59b342607146fedae2ad2813b9cffaf31bde1707	evet	1	Karar hattı eklendi: talep açılırken iş kaydı, ayrı worker, kalıcı karar ve çağrı kayıtları
+8372f67d0df51419cbb54ce5a7899afefee504e6	abc543725e83aeebd9b080e289bf3733028613eb	evet	1	Yönetici panelinde karar motoru kartı ve geçmişte karar olayları eklendi
+17d068dc192a07872e038955b8980a254963780f	b2ab0662bb5f0f5aec9013bdff7e3b0324297e63	evet	1	Harcama sınırı çağrı başına muhafazakâr rezervasyonla kesinleştirildi
+d338b031801d9ac3692466e0bfff080eacd5397a	c0febbc6eb85faa8bb2e667803d667f66d3e8cb0	evet	1	Canlı deneme için harcama sınırı onayı STATUS'a işlendi
+b21b1a70424f2ac5e7a2282c9f4995d6e0176635	c695e1bee17bd6cb58444d3ff34e31c3c7da1fe8	evet	1	Bütçe süreçler arası kalıcı deftere alındı; ön kontrol, örnek bazında ayrıntı ve hızlı durdurma eklendi
