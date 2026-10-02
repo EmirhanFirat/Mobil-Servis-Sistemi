@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)
     access_token_minutes: int = 480
 
+    # Ücretli model çağrıları VARSAYILAN OLARAK KAPALIDIR. Açmadan gerçek Jev/LLM çağrısı yapılamaz
+    # (bkz. app/decision/factory.py). Anahtarlar yalnızca burada, ortam değişkeninden okunur;
+    # mobil uygulamaya, depoya veya sohbete konmaz.
+    paid_model_calls_enabled: bool = False
+    jev_api_key: SecretStr | None = None
+    jev_base_url: str = "https://api.typesafe.ai"
+    jev_model: str = "jev-1.13.0"  # sabitlenmiş sürüm; takma ad (jev-latest) değil
+
     # Tarayıcıdan API'ye erişebilen kaynaklar: yönetici paneli (5173) ve mobil uygulamanın web
     # önizlemesi (8081). Yalnızca geliştirme varsayılanıdır; üretimde ortam değişkeniyle verilir.
     cors_origins: list[str] = [

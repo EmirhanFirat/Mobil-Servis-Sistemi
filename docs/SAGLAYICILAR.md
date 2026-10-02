@@ -30,6 +30,10 @@ Kaynaklar: https://docs.typesafe.ai/ (dizin: `/llms.txt`), `/models.md`, `/api.m
 - **Soru tasarımı:** kategori ve öncelik Choice (her biri "belirsiz" seçeneğiyle, 6 ve 4 seçenek), her eksik bilgi türü ayrı Noul. Altı soru tek çağrıda gider. Jev'den açıklama istenmez.
 - **State:** yalnızca `title`, `description`, `location` (nesne olarak, adlandırılmış alanlar). Kullanıcı adı, kimlik ve geçmiş gönderilmez. Metin **veri olarak** taşınır, talimat olarak değil.
 - **Güven eşikleri** doğrulama kümesinde ayarlanır (test kümesinde değil); başlangıç değerleri muhafazakârdır.
+- **Soru metni İngilizce**, talep metni Türkçe (Jev'in birincil dili İngilizce). Bu bir **hipotezdir**: Türkçe soru metninin daha iyi olup olmadığı deneyle bakılacak. Her sonuç, soru metninin özetini içeren `prompt_version`'la kaydedilir (`jev-sorular-v1-<özet>`), metin değişince sürüm kendiliğinden değişir.
+- **Model sürümü sabitlenir** (`jev-1.13.0`, `jev-latest` değil); kayıtta yanıttaki gerçek sürüm tutulur. Yanıtlayan sürüm fiyatı doğrulanmış sürümden farklıysa maliyet bilinmez (`None`) sayılır.
+- **Yeniden deneme:** 3 deneme (ilk + 2 yeniden), 0,5 sn'den 5 sn'ye üstel bekleme; 408/429/5xx ve şema hatası yeniden denenir, 401/403/400/422 denenmez; `retry-after-ms` ve `retry-after` başlıklarına uyulur. Resmî SDK varsayılanlarıyla uyumludur (2 yeniden deneme, 0,5–5 sn). Zaman aşımı 10 sn.
+- **Durum:** adaptör (`app/decision/jev.py`) yazıldı ve `httpx.MockTransport` ile test edildi. **Gerçek Jev'e hiç istek atılmadı.** Ücretli çağrılar `TALEPAKIS_PAID_MODEL_CALLS_ENABLED` ve `TALEPAKIS_JEV_API_KEY` olmadan kurulamaz.
 
 ## Ekonomik LLM — henüz seçilmedi
 

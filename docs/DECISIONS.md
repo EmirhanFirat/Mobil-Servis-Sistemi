@@ -92,6 +92,10 @@ Hibrit önce Jev'e tüm soruları sorar; yalnızca Jev'in **yanıtladığı ama 
 
 Resmî Python SDK `httpx2`'ye bağlı (bkz. D7: onay bekliyor). Adaptör, belgelenmiş `POST /v1/systemone` şemasına doğrudan konuşur; `docs/SAGLAYICILAR.md` bilgileri ve kaynaklarıyla tutar. Jev'in birincil eğitim dili İngilizcedir; Türkçe doğruluğu varsayılmaz, ölçülür.
 
+## D23 — Jev adaptörü ve ücretli çağrı koruması (2026-10-02)
+
+Adaptör belgelenmiş HTTP şemasına uyar ve **kendi başına ağ isteği yapmaz**: yalnızca örneği oluşturulup `classify` çağrılırsa istek atılır; örnek, ücretli çağrılar açık ve anahtar tanımlı değilse fabrikadan alınamaz (`TALEPAKIS_PAID_MODEL_CALLS_ENABLED=false` varsayılan). Anahtar yalnızca `Authorization` başlığındadır; kayıtlara, hata mesajlarına, `repr`'a girmez. Sunucu yanıt gövdesi (kullanıcı metnini yansıtabilir) hata kayıtlarına konmaz, yalnızca durum kodu. Kullanıcı metni yalnızca `state` verisidir; sorular sabittir ve her biri durumu veri olarak ele almasını söyler. Yanıt şeması sıkı doğrulanır (bilinmeyen seçenek, 1'e toplanmayan olasılık, aralık dışı değer → `schema_error`, yeniden denenir). `httpx` dev'den çalışma zamanı bağımlılığına alındı (`httpx2` kararı hâlâ açık, D7).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

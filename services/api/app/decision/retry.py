@@ -39,7 +39,12 @@ DEFAULT_RETRY = RetryPolicy()
 
 
 def _finalize(provider: Provider, record: CallRecord, attempt: int) -> CallRecord:
-    cost = compute_cost(provider.price, record.input_tokens, record.output_tokens)
+    # Fiyat yalnızca yanıtı veren GERÇEK model sürümüyle eşleşiyorsa uygulanır. Sağlayıcı farklı
+    # bir sürümle yanıtladıysa o sürümün fiyatı doğrulanmadığı için maliyet bilinmez (None).
+    price = provider.price
+    if price is not None and record.model != price.model:
+        price = None
+    cost = compute_cost(price, record.input_tokens, record.output_tokens)
     return replace(record, attempt=attempt, cost_usd=cost)
 
 
