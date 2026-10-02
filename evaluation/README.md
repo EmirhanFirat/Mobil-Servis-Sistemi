@@ -2,7 +2,7 @@
 
 Dört stratejinin (`rule_based`, `llm_only`, `jev_only`, `hybrid`) aynı Türkçe servis taleplerinde doğruluk, süre ve maliyetini karşılaştırmak için. **Bu klasör veri ve belge içerir; kod `services/api/app/evaluation/` altındadır.**
 
-> **Durum (2026-10-02):** altyapı hazır ve mock sağlayıcılarla doğrulandı; gerçek stratejiler harcama sınırıyla çalıştırılabilir durumda (sahte HTTP ile test edildi). **Gerçek Jev veya LLM ile ölçüm henüz yapılmadı**; hiçbir sonuç gerçek model ölçümü olarak sunulmamalıdır. Mock sonuçları raporlarda açıkça işaretlenir.
+> **Durum (2026-10-02):** altyapı hazır ve mock sağlayıcılarla doğrulandı; gerçek stratejiler harcama sınırıyla çalıştırılabilir durumda (sahte HTTP ile test edildi). **Gerçek Jev ve LLM ile yalnızca 5 örneklik bir bağlantı denemesi yapıldı** (2026-10-02, bütçe kimliği `ilk-deneme`; ayrıntı `docs/STATUS.md`); bu bir doğruluk veya maliyet ölçümü değildir ve hiçbir sonuç öyle sunulmamalıdır. Mock sonuçları raporlarda açıkça işaretlenir.
 
 ## İçerik
 

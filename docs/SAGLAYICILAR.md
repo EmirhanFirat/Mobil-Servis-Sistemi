@@ -33,7 +33,7 @@ Kaynaklar: https://docs.typesafe.ai/ (dizin: `/llms.txt`), `/models.md`, `/api.m
 - **Soru metni İngilizce**, talep metni Türkçe (Jev'in birincil dili İngilizce). Bu bir **hipotezdir**: Türkçe soru metninin daha iyi olup olmadığı deneyle bakılacak. Her sonuç, soru metninin özetini içeren `prompt_version`'la kaydedilir (`jev-sorular-v1-<özet>`), metin değişince sürüm kendiliğinden değişir.
 - **Model sürümü sabitlenir** (`jev-1.13.0`, `jev-latest` değil); kayıtta yanıttaki gerçek sürüm tutulur. Yanıtlayan sürüm fiyatı doğrulanmış sürümden farklıysa maliyet bilinmez (`None`) sayılır.
 - **Yeniden deneme:** 3 deneme (ilk + 2 yeniden), 0,5 sn'den 5 sn'ye üstel bekleme; 408/429/5xx ve şema hatası yeniden denenir, 401/403/400/422 denenmez; `retry-after-ms` ve `retry-after` başlıklarına uyulur. Resmî SDK varsayılanlarıyla uyumludur (2 yeniden deneme, 0,5–5 sn). Zaman aşımı 10 sn.
-- **Durum:** adaptör (`app/decision/jev.py`) yazıldı ve `httpx.MockTransport` ile test edildi. **Gerçek Jev'e hiç istek atılmadı.** Ücretli çağrılar `TALEPAKIS_PAID_MODEL_CALLS_ENABLED` ve `TALEPAKIS_JEV_API_KEY` olmadan kurulamaz.
+- **Durum:** adaptör (`app/decision/jev.py`) yazıldı ve `httpx.MockTransport` ile test edildi. 2026-10-02'de tek bir 5 örneklik bağlantı denemesinde **10 gerçek çağrı** yapıldı (10'u başarılı, retry yok, token kullanımı sağlayıcıdan geldi, bilinen ücret ≈ 0,000386 USD); bu doğruluk ölçümü değildir. Ücretli çağrılar `TALEPAKIS_PAID_MODEL_CALLS_ENABLED` ve `TALEPAKIS_JEV_API_KEY` olmadan kurulamaz.
 
 ## Ekonomik LLM — Anthropic Claude Haiku 4.5 — doğrulama tarihi: 2026-10-02
 
@@ -63,7 +63,7 @@ Kaynaklar: https://platform.claude.com/docs/en/about-claude/pricing, `/about-cla
 - **Güven = modelin kendi yazdığı sayı** (`self_reported`); olasılık verilmez (`None`). Jev güveniyle karşılaştırılmaz.
 - **Ayarlar:** sıcaklık 0, `thinking` yok, `max_tokens` 600 (yaklaşık 150 token gerekir), zaman aşımı 30 sn, otomatik retry yok; 3 deneme, 0,5–5 sn üstel bekleme, 429'da `retry-after`.
 - **Anahtar:** yalnızca `TALEPAKIS_ANTHROPIC_API_KEY` ortam değişkeni ve `TALEPAKIS_PAID_MODEL_CALLS_ENABLED=true` birlikte. Standart `ANTHROPIC_API_KEY` **bilerek okunmaz**: başka araçlar için tanımlı bir anahtar bu projede kazara ücretli çağrı yapmasın. Hata mesajlarına sunucu gövdesi konmaz; yalnızca durum kodu ve sınırlı `error.type`.
-- **Durum:** adaptör (`app/decision/llm_anthropic.py`, `llm_prompt.py`) yazıldı ve `httpx.MockTransport` ile test edildi. **Gerçek Anthropic'e hiç istek atılmadı**; gerçek modelin araç çağrısına uyma oranı, Türkçedeki doğruluğu ve gerçek token kullanımı **ölçülmedi**.
+- **Durum:** adaptör (`app/decision/llm_anthropic.py`, `llm_prompt.py`) yazıldı ve `httpx.MockTransport` ile test edildi. 2026-10-02'de tek bir 5 örneklik bağlantı denemesinde **10 gerçek çağrı** yapıldı (10'u başarılı, zorunlu araç çağrısı beklenen şemada döndü, retry yok, token kullanımı sağlayıcıdan geldi, bilinen ücret ≈ 0,020990 USD). 10 çağrı araç çağrısına uyma oranını, Türkçedeki doğruluğu veya fiyat/performansı **ölçmek için yetersizdir**.
 
 ## Anahtar ve bakiye (2026-10-02 araştırması)
 
