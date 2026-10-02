@@ -45,6 +45,15 @@ Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
+Talepler açılırken bir **karar işi** kaydedilir (kategori/öncelik/eksik bilgi önerisi). İşleri ayrı bir süreç işler; API çalışmasa da talepler kaybolmaz:
+
+```powershell
+# 5) Karar worker'ı (ayrı terminalde sürekli çalışır; kuyruğu bir kez boşaltmak için --once)
+.\.venv\Scripts\python.exe -m app.worker
+```
+
+Worker şimdilik yalnızca ücretsiz stratejileri çalıştırır (`TALEPAKIS_DECISION_STRATEGY`: varsayılan `rule_based`; `mock_jev`, `mock_llm`, `mock_hybrid`; `off` işi kapatır). Gerçek Jev/LLM çağrıları ürün akışında kapalıdır.
+
 Sunucu `http://127.0.0.1:8000` adresinde açılır. Etkileşimli API belgeleri: `http://127.0.0.1:8000/docs` ("Authorize" ile giriş yanıtındaki token'ı gir). Kontrol uçları: `/health` (süreç ayakta mı), `/health/ready` (veritabanı dahil hazır mı).
 
 > Veritabanı adresinde `localhost` yerine `127.0.0.1` kullan. Windows'ta `localhost` önce IPv6'yı dener ve her bağlantıda yaklaşık 8 saniye bekler.

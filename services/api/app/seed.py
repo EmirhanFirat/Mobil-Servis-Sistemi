@@ -65,17 +65,28 @@ def seed_tickets(db: Session) -> int:
     ayse, burak = _user(db, "ayse"), _user(db, "burak")
     teams = {team.code: team for team in db.scalars(select(Team))}
 
-    def open_ticket(owner: User, title: str, description: str, location: str) -> Ticket:
+    def open_ticket(
+        owner: User,
+        title: str,
+        description: str,
+        location: str,
+        decision_strategy: str | None = None,
+    ) -> Ticket:
         return svc.create_ticket(
-            db, owner, TicketCreate(title=title, description=description, location=location)
+            db,
+            owner,
+            TicketCreate(title=title, description=description, location=location),
+            decision_strategy=decision_strategy,
         )
 
-    # 1) Yeni, henüz yönlendirilmemiş
+    # 1) Yeni, henüz yönlendirilmemiş: karar işi kuyrukta bekler (worker işleyince yönlendirilir:
+    #    `python -m app.worker --once`). Diğer demo talepler elle düzenlendiği için iş açılmaz.
     open_ticket(
         ayse,
         "Lavabo akıtıyor",
         "B blok ikinci kattaki lavabo akıtıyor, su koridora yayılıyor.",
         "B Blok, 2. kat koridor",
+        decision_strategy="rule_based",
     )
 
     # 2) Elektrik ekibine atanmış, yüksek öncelikli

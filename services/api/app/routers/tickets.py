@@ -3,7 +3,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.deps import AdminUser, CurrentUser, DbSession
+from app.deps import AdminUser, CurrentUser, DbSession, SettingsDep
+from app.domain.decision_jobs import DECISION_OFF
 from app.domain.vocabulary import TicketStatus
 from app.schemas import (
     AssignRequest,
@@ -19,9 +20,19 @@ router = APIRouter(prefix="/tickets", tags=["talepler"])
 
 
 @router.post("", response_model=TicketDetail, status_code=201, summary="Yeni talep aç")
-def create_ticket(data: TicketCreate, user: CurrentUser, db: DbSession) -> TicketDetail:
-    ticket = svc.create_ticket(db, user, data)
-    return svc.to_detail(svc.get_visible_ticket(db, user, ticket.id), user)
+def create_ticket(
+    data: TicketCreate, user: CurrentUser, db: DbSession, settings: SettingsDep
+) -> TicketDetail:
+    # Karar işi talebin kendisiyle AYNI işlemde kaydedilir (model/worker çalışmasa da talep durur).
+    strategy = None if settings.decision_strategy == DECISION_OFF else settings.decision_strategy
+    ticket = svc.create_ticket(
+        db,
+        user,
+        data,
+        decision_strategy=strategy,
+        decision_max_attempts=settings.decision_job_max_attempts,
+    )
+    return svc.detail_for(db, user, ticket.id)
 
 
 @router.get("", response_model=TicketList, summary="Görebildiğin talepler")
@@ -49,7 +60,7 @@ def list_tickets(
 
 @router.get("/{ticket_id}", response_model=TicketDetail, summary="Talep ayrıntısı ve geçmişi")
 def get_ticket(ticket_id: UUID, user: CurrentUser, db: DbSession) -> TicketDetail:
-    return svc.to_detail(svc.get_visible_ticket(db, user, ticket_id), user)
+    return svc.detail_for(db, user, ticket_id)
 
 
 @router.post(
@@ -59,7 +70,7 @@ def transition_ticket(
     ticket_id: UUID, data: TransitionRequest, user: CurrentUser, db: DbSession
 ) -> TicketDetail:
     svc.transition_ticket(db, user, ticket_id, data.to, data.note)
-    return svc.to_detail(svc.get_visible_ticket(db, user, ticket_id), user)
+    return svc.detail_for(db, user, ticket_id)
 
 
 @router.post(
@@ -71,7 +82,7 @@ def assign_ticket(
     ticket_id: UUID, data: AssignRequest, admin: AdminUser, db: DbSession
 ) -> TicketDetail:
     svc.assign_ticket(db, admin, ticket_id, data)
-    return svc.to_detail(svc.get_visible_ticket(db, admin, ticket_id), admin)
+    return svc.detail_for(db, admin, ticket_id)
 
 
 @router.patch(
@@ -83,4 +94,4 @@ def patch_ticket(
     ticket_id: UUID, data: TicketPatch, admin: AdminUser, db: DbSession
 ) -> TicketDetail:
     svc.patch_ticket(db, admin, ticket_id, data)
-    return svc.to_detail(svc.get_visible_ticket(db, admin, ticket_id), admin)
+    return svc.detail_for(db, admin, ticket_id)

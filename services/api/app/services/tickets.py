@@ -29,6 +29,7 @@ from app.schemas import (
     TicketPatch,
     TicketSummary,
 )
+from app.services import decisions
 
 Scope = Literal["mine", "queue"]
 
@@ -129,7 +130,16 @@ def _add_assignee_event(ticket: Ticket, actor: User, old: User | None, new: User
     )
 
 
-def create_ticket(db: Session, user: User, data: TicketCreate) -> Ticket:
+def create_ticket(
+    db: Session,
+    user: User,
+    data: TicketCreate,
+    *,
+    decision_strategy: str | None = None,
+    decision_max_attempts: int = 3,
+) -> Ticket:
+    """Talep açar. `decision_strategy` verilirse karar işi AYNI işlemde kaydedilir: talep ve iş
+    birlikte kaydolur veya birlikte geri alınır; model/worker çalışmasa da talep kaybolmaz."""
     ticket = Ticket(
         title=data.title,
         description=data.description,
@@ -140,6 +150,8 @@ def create_ticket(db: Session, user: User, data: TicketCreate) -> Ticket:
     )
     _add_event(ticket, user, "created")
     db.add(ticket)
+    if decision_strategy is not None:
+        decisions.enqueue_job(db, ticket, decision_strategy, max_attempts=decision_max_attempts)
     db.commit()
     return ticket
 
@@ -306,6 +318,16 @@ def patch_ticket(db: Session, user: User, ticket_id: UUID, patch: TicketPatch) -
 
 def to_summary(ticket: Ticket) -> TicketSummary:
     return TicketSummary.model_validate(ticket)
+
+
+def detail_for(db: Session, user: User, ticket_id: UUID) -> TicketDetail:
+    """Talep ayrıntısı. Karar motoru bilgisi (kaynak, mock mu, inceleme nedenleri) yalnızca
+    yöneticiye eklenir; yetki kararı burada, sunucuda verilir."""
+    ticket = get_visible_ticket(db, user, ticket_id)
+    detail = to_detail(ticket, user)
+    if user.role is Role.ADMIN:
+        detail.decision = decisions.get_panel(db, ticket.id)
+    return detail
 
 
 def to_detail(ticket: Ticket, user: User) -> TicketDetail:

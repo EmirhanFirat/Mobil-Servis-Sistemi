@@ -1,5 +1,5 @@
-"""Karar ve çağrı kayıtlarını JSON'a çevirir (predictions.jsonl). Rapor, bu kayıtlardan model
-çağrısı yapmadan yeniden üretilebilir."""
+"""Karar ve çağrı kayıtlarını JSON'a çevirir (predictions.jsonl ve veritabanı). Rapor, bu
+kayıtlardan model çağrısı yapmadan yeniden üretilebilir."""
 
 from app.decision.contract import CallRecord, Decision, Judgment
 

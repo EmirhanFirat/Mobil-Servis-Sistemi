@@ -30,10 +30,11 @@ from pathlib import Path
 from app.config import Settings, get_settings
 from app.decision.contract import DecisionUnavailable, StrategyName
 from app.decision.factory import anthropic_provider_from_settings, jev_provider_from_settings
-from app.decision.mock import MockProvider
 from app.decision.pricing import PRICES
+from app.decision.registry import FREE_STRATEGY_BUILDERS
 from app.decision.retry import DEFAULT_RETRY
 from app.decision.rule_based import RULES_VERSION, RuleBasedStrategy
+from app.decision.serialize import call_to_dict, decision_to_dict
 from app.decision.strategies import HybridStrategy, ProviderStrategy
 from app.evaluation.dataset import (
     SPLITS,
@@ -43,15 +44,10 @@ from app.evaluation.dataset import (
     load_samples,
     repo_root,
 )
-from app.evaluation.serialize import call_to_dict, decision_to_dict
 
 # Varsayılan stratejiler: kurallı taban ve mock'lar. Ağ isteği yapmazlar, ücretsizdirler.
-STRATEGY_BUILDERS: dict[str, Callable[[], object]] = {
-    "rule_based": RuleBasedStrategy,
-    "mock_jev": lambda: ProviderStrategy(StrategyName.JEV_ONLY, MockProvider("jev")),
-    "mock_llm": lambda: ProviderStrategy(StrategyName.LLM_ONLY, MockProvider("llm")),
-    "mock_hybrid": lambda: HybridStrategy(MockProvider("jev"), MockProvider("llm")),
-}
+# (Kayıt defteri karar worker'ıyla paylaşılır; testler bu kopyayı yamayabilir.)
+STRATEGY_BUILDERS: dict[str, Callable[[], object]] = dict(FREE_STRATEGY_BUILDERS)
 
 # Gerçek, ÜCRETLİ stratejiler. Ayarlardan kurulur; ücretli çağrılar kapalıysa veya anahtar yoksa
 # kurulamaz (factory.py). Hibrit eşikleri başlangıç değerleridir; doğrulama (val) kümesinde

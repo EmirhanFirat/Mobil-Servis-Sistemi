@@ -4,6 +4,8 @@ from typing import Literal
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.domain.decision_jobs import DECISION_OFF, FREE_STRATEGY_NAMES
+
 # Yalnızca yerel geliştirme içindir. Üretimde farklı ve güçlü bir değer zorunludur.
 DEV_SECRET_KEY = "dev-only-insecure-secret-key-change-me-0123456789"
 
@@ -35,6 +37,14 @@ class Settings(BaseSettings):
     anthropic_base_url: str = "https://api.anthropic.com"
     anthropic_model: str = "claude-haiku-4-5-20251001"  # sabitlenmiş sürüm, takma ad değil
 
+    # Karar motoru: talep açılırken kaydedilen karar işinin stratejisi ("off" = iş kaydetme).
+    # Yalnızca ücretsiz stratejiler (rule_based, mock_*) seçilebilir; gerçek Jev/LLM stratejileri
+    # harcama koruması olmadan ürün akışına bağlanmaz. Worker: `python -m app.worker`.
+    decision_strategy: str = "rule_based"
+    decision_job_max_attempts: int = 3
+    decision_job_lease_seconds: int = 120
+    worker_poll_seconds: float = 2.0
+
     # Tarayıcıdan API'ye erişebilen kaynaklar: yönetici paneli (5173) ve mobil uygulamanın web
     # önizlemesi (8081). Yalnızca geliştirme varsayılanıdır; üretimde ortam değişkeniyle verilir.
     cors_origins: list[str] = [
@@ -43,6 +53,18 @@ class Settings(BaseSettings):
         "http://localhost:8081",
         "http://127.0.0.1:8081",
     ]
+
+    @model_validator(mode="after")
+    def _gecerli_karar_stratejisi(self) -> "Settings":
+        allowed = (*FREE_STRATEGY_NAMES, DECISION_OFF)
+        if self.decision_strategy not in allowed:
+            raise ValueError(
+                f"TALEPAKIS_DECISION_STRATEGY şunlardan biri olmalı: {', '.join(allowed)} "
+                "(gerçek Jev/LLM stratejileri ürün akışına henüz bağlı değil)."
+            )
+        if self.decision_job_max_attempts < 1 or self.decision_job_lease_seconds < 1:
+            raise ValueError("Karar işi deneme sayısı ve kira süresi en az 1 olmalı.")
+        return self
 
     @model_validator(mode="after")
     def _uretimde_guclu_anahtar_iste(self) -> "Settings":

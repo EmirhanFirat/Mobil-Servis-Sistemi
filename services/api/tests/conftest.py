@@ -174,7 +174,9 @@ def make_ticket(db: Session) -> Callable[..., Ticket]:
             description=fields.pop("description", "Su koridora yayılıyor."),
             location=fields.pop("location", "B Blok, 2. kat"),
         )
-        return ticket_service.create_ticket(db, owner, data)
+        return ticket_service.create_ticket(
+            db, owner, data, decision_strategy=fields.pop("decision_strategy", None)
+        )
 
     return _make
 

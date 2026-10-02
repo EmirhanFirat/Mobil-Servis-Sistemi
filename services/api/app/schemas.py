@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.decision.contract import StrategyName
+from app.domain.decision_jobs import ApplyOutcome, JobOutcome, JobStatus
 from app.domain.vocabulary import Category, MissingInfo, Priority, Role, TicketStatus
 
 Text200 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -108,6 +110,59 @@ class TicketSummary(ORM):
     updated_at: datetime
 
 
+class JudgmentOut(BaseModel):
+    """Karar motorunun tek bir sorudaki yargısı ve sağlayıcıya özgü sinyalleri."""
+
+    question: str
+    answer: str | bool | None
+    probabilities: dict[str, float] | None = None
+    confidence: float | None = None
+    confidence_kind: str | None = None  # jev_confidence | derived_margin | self_reported
+    n_options: int | None = None
+    source: str | None = None
+    adopted: bool = True
+
+
+class DecisionJobOut(ORM):
+    strategy: str  # çalıştırılan strateji adı (rule_based, mock_hybrid, ...)
+    status: JobStatus
+    outcome: JobOutcome | None
+    attempts: int
+    max_attempts: int
+    last_error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class DecisionOut(BaseModel):
+    """Karar motorunun İLK tahmini. Talebin güncel alanlarından ayrıdır; insan düzeltmesi bunu
+    değiştirmez ve otomatik "gerçek etiket" sayılmaz."""
+
+    id: UUID
+    strategy: StrategyName
+    job_strategy: str | None
+    is_mock: bool
+    providers: list[str]
+    model_versions: list[str]
+    category: Category | None
+    priority: Priority | None
+    missing_info: list[str]
+    review_required: bool
+    review_reasons: list[str]
+    applied_outcome: ApplyOutcome
+    applied_at: datetime | None
+    created_at: datetime
+    judgments: list[JudgmentOut]
+    calls_total: int
+    cost_known_usd: str | None
+    calls_with_unknown_cost: int
+
+
+class DecisionPanel(BaseModel):
+    job: DecisionJobOut | None
+    decision: DecisionOut | None
+
+
 class TicketDetail(TicketSummary):
     description: str
     # Bu kullanıcının bu talepte yapabileceği işlemler (sunucu hesaplar, istemci yalnızca gösterir).
@@ -115,6 +170,8 @@ class TicketDetail(TicketSummary):
     can_assign: bool
     can_edit: bool
     events: list[EventOut]
+    # Karar motoru ayrıntısı YALNIZCA yöneticiye döner (inceleme nedenleri, model bilgisi).
+    decision: DecisionPanel | None = None
 
 
 class TicketList(BaseModel):
