@@ -66,6 +66,14 @@ Ayrıntı ekranındaki işlem düğmeleri, sunucunun döndürdüğü `allowed_tr
 
 Bu geliştirme ortamında telefon veya emülatör yok. Mobil kod `react-native-web` ile tarayıcıda çalıştırılıp gerçek API'ye karşı uçtan uca denendi (giriş, liste, süzgeç, ayrıntı, işlemler, yeni talep, 401 ve bağlantı hatası durumları). Bu, gerçek cihaz testinin yerini tutmaz: SecureStore, klavye davranışı ve platform farkları cihazda ayrıca denenmelidir. Koordinatla tıklama bu tarayıcı bölmesinde güvenilmez olduğu için gezinme DOM tıklamasıyla, metin girişi gerçek klavye yazımıyla yapıldı.
 
+## D18 — Yönetici paneli: Vite + React, mobille aynı kalıplar (2026-10-02)
+
+Vite 8.3 + React 19 + React Router, ek durum yönetimi/arayüz kütüphanesi yok (düz CSS, açık/koyu tema). Mobildeki kalıplar korundu: sunucu izin kararı verir (`allowed_transitions`, `can_assign`, `can_edit`), istemci yalnızca sunar; satır içi onay; ham 5xx metni gösterilmez. Panel yalnızca yönetici rolüne açıktır: yönetici olmayan hesabın token'ı hiç saklanmaz (bu istemci tarafı kontrol yalnızca kolaylıktır; yönetim uçlarını sunucu zaten 403 ile reddeder). Token `sessionStorage`'dadır (sekme kapanınca silinir, `localStorage`'dan kısa ömürlü); bu XSS'e karşı koruma değildir, bu yüzden metinler hiçbir yerde HTML olarak basılmaz (React kaçışlar) ve yayında içerik güvenlik politikası eklenecek (Aşama 5).
+
+Ekip önerisi: atama formu, talebin kategorisinin varsayılan ekibini ön seçer (sözlükteki tek kaynak `category_default_team`); ekip ile kategori birbirinden bağımsız tahmin edilmez. Yönetici değiştirebilir; ekip değişince görevli seçimi sıfırlanır (görevli seçilen ekibin üyesi olmalı).
+
+Bilinçli tekrar: API tipleri, olay cümleleri ve işlem etiketleri mobil ve panelde ayrı kopyalardır. Ortak paket (monorepo çalışma alanı) bu ölçekte (iki küçük istemci) kurulum maliyetine değmedi; sapma riski testlerle sınırlı (sunucudaki geçiş tablosunun kopyası her iki istemcide de her geçişin okunur bir etiketi olduğunu doğrular). Üçüncü bir istemci veya ilk sapma olursa ortak pakete geçilir.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

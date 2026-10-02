@@ -4,14 +4,14 @@ Kampüs veya yurt bakım ekipleri için mobil servis talebi ve iş yönlendirme 
 
 Projenin araştırma sorusu: **Türkçe servis taleplerinde Jev, ekonomik bir LLM ve hibrit yaklaşım arasında doğruluk, işlem süresi ve maliyet nasıl değişiyor?** Sonuçlar ölçülmeden hiçbir tasarruf veya başarı iddiası yapılmaz.
 
-> **Durum:** Aşama 1 sürüyor. **API ve mobil uygulama tamamlandı:** giriş ve roller, talep açma/listeleme/ayrıntı, ekip kuyruğu, rol bazlı durum geçişleri, olay geçmişi. Yönetici paneli (web) sırada. Karar motoru (kategori/öncelik önerisi) ve model karşılaştırması henüz yok; şu an yönlendirmeyi yönetici yapar. Mobil uygulama tarayıcı önizlemesinde uçtan uca doğrulandı; gerçek telefonda/emülatörde henüz denenmedi. Ayrıntı: [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md).
+> **Durum:** Aşama 1 (AI olmadan ürün) tamamlandı: API, mobil uygulama ve yönetici paneli. Giriş ve roller, talep açma/listeleme/ayrıntı, ekip kuyruğu, rol bazlı durum geçişleri, olay geçmişi, yönetici düzeltme/atama ve kullanıcı/ekip yönetimi çalışıyor. Karar motoru (kategori/öncelik önerisi) ve model karşılaştırması henüz yok; şu an yönlendirmeyi yönetici yapar. Mobil uygulama ve panel tarayıcıda gerçek API'ye karşı uçtan uca doğrulandı; mobil gerçek telefonda/emülatörde henüz denenmedi. Ayrıntı: [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md).
 
 ## Yapı
 
 ```
 services/api   FastAPI sunucusu (Python 3.12, SQLAlchemy, Alembic, PostgreSQL)
 apps/mobile    Expo (SDK 57) + React Native + TypeScript
-apps/admin     Yönetici paneli, React web         (sırada)
+apps/admin     Yönetici paneli: React + Vite + TypeScript (web)
 evaluation     Benchmark ve değerlendirme         (Aşama 4)
 docs           Plan, durum ve mimari kararlar
 ```
@@ -89,9 +89,25 @@ Oturum token'ı telefonda cihazın güvenli deposunda (iOS Keychain / Android Ke
 
 Giriş yaptıktan sonra: **Taleplerim** (açtığın talepler), **Yeni talep**, **İş listesi** (yalnızca teknik görevli ve yönetici; ekip kuyruğu ve süzgeçler), **Hesap**. Talep ayrıntısında olay geçmişi ve sunucunun sana izin verdiği işlemler (işleme al, çözüldü, kapat, yeniden aç...) görünür.
 
+## Yönetici panelini çalıştırma
+
+API çalışıyorken:
+
+```powershell
+cd apps\admin
+npm install
+npm run dev                 # http://localhost:5173
+```
+
+Demo hesabı `yonetici` ile giriş yap (yönetici olmayan hesaplar panele giremez). Panel: **Talepler** (Yönlendirme bekleyen / Ekipte / Çözüldü / Kapatıldı / Tümü, sayfalı), **talep ayrıntısı** (geçmiş, durum işlemleri, ekip ve görevli ataması, öncelik/kategori/eksik bilgi düzeltme; ekip, kategorinin varsayılan ekibinden önerilir), **Kullanıcılar** (oluştur, rol değiştir, pasife al) ve **Ekipler** (görevli ekle/çıkar).
+
+API adresi `VITE_API_URL` ile verilir (varsayılan `http://127.0.0.1:8000`; derleme zamanında pakete gömülür, gizli bilgi koyma). Tarayıcıdan erişebilmesi için panelin adresi API'nin CORS izin listesinde olmalıdır (`TALEPAKIS_CORS_ORIGINS`; geliştirme varsayılanı 5173 ve 8081 portlarını içerir). Oturum token'ı `sessionStorage`'da tutulur: sekme kapanınca silinir.
+
 ## Testler ve lint
 
 Mobil: `cd apps\mobile`, sonra `npm test` (Jest), `npm run typecheck`, `npx expo lint`.
+
+Yönetici paneli: `cd apps\admin`, sonra `npm test` (Vitest), `npm run typecheck`, `npm run lint`, `npm run build`.
 
 API testleri gerçek PostgreSQL ister: her çalıştırmada ayrı bir `talepakis_test` veritabanı **sıfırdan** kurulur ve migration'lar uygulanır; geliştirme verisine dokunulmaz. Docker kapalıysa testler açık bir mesajla durur.
 
