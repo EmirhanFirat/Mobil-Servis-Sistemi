@@ -50,6 +50,11 @@ def live_settings(**overrides) -> Settings:
     return Settings(**{**base, **overrides})
 
 
+def budget_dir_for(tmp_path):
+    """Bütçe defteri, çıktı klasöründen AYRI bir klasörde (çıktı klasörü 'boş mu' denetlenir)."""
+    return tmp_path.parent / f"{tmp_path.name}-defter"
+
+
 def do_run(tmp_path, **kwargs):
     defaults = dict(
         splits=("dev",),
@@ -57,6 +62,8 @@ def do_run(tmp_path, **kwargs):
         now=lambda: FIXED_NOW,
         git=git_stub,
         settings=live_settings(),
+        budget_id="test-butce",
+        budget_dir=budget_dir_for(tmp_path),
     )
     return run_evaluation(**{**defaults, **kwargs})
 
@@ -256,13 +263,13 @@ class TestBudget:
 
         record = run_json(run_dir)
         budget = record["budget"]
-        assert budget["calls"] == len(build.requests) > 0
-        assert budget["conservative_charges"] == budget["calls"]
-        assert 0 < Decimal(budget["spent_usd"]) <= Decimal("0.1")
-        assert record["stopped_early"]["reason"] == "budget"
-        assert all(
-            p["failed"] for p in predictions(run_dir)
-        )  # kararlar başarısız, ücret yine sayıldı
+        assert budget["calls"] == len(build.requests) == 6  # 2 başarısız karar × 3 deneme
+        assert budget["conservative_charges"] == budget["calls"]  # her biri en kötü bedelle sayıldı
+        assert budget["known_spent_usd"] == "0"
+        assert 0 < Decimal(budget["spent_usd"]) <= Decimal("0.1")  # ücretsiz SAYILMADI
+        # Sistematik kesinti: bütçeyi boşuna yakmamak için ardışık 2 başarısız kararda durulur.
+        assert record["stopped_early"]["reason"] == "provider_unavailable"
+        assert all(p["failed"] for p in predictions(run_dir))  # kararlar başarısız, ücret sayıldı
 
     def test_sema_hatasi_yaniti_kullanim_bildirdigi_icin_gercek_ucretle_sayilir(
         self, tmp_path, monkeypatch
@@ -274,8 +281,10 @@ class TestBudget:
 
         record = run_json(run_dir)
         assert all(p["failed"] for p in predictions(run_dir))
-        assert Decimal(record["budget"]["spent_usd"]) == LLM_CALL_COST * 3 * DEV_SAMPLES
+        # 2 başarısız karar × 3 deneme; yanıtlar kullanım bildirdiği için GERÇEK ücretle sayılır.
+        assert Decimal(record["budget"]["spent_usd"]) == LLM_CALL_COST * 6
         assert record["budget"]["conservative_charges"] == 0
+        assert record["stopped_early"]["reason"] == "provider_unavailable"
 
     def test_gercek_ucret_rezervasyonu_asarsa_calistirma_durur(self, tmp_path, monkeypatch):
         huge = usage_block(input_tokens=5_000_000)  # tahminin çok üstünde bir kullanım
@@ -332,13 +341,14 @@ class TestBudget:
         assert record["stopped_early"]["reason"] == "budget"
         assert record["stopped_early"]["samples_completed"] == 0
         aborted = record["aborted_prediction"]
+        assert aborted["reason"] == "budget"
         assert (
             aborted["strategy"] == "hybrid" and len(aborted["calls"]) == 1
         )  # Jev harcaması kayıtlı
         assert aborted["calls"][0]["provider"] == "jev"
         assert Decimal(record["budget"]["spent_usd"]) == JEV_CALL_COST  # harcama sayaçta
         markdown, _ = build_report(run_dir)
-        assert "Bütçe nedeniyle yarıda kesilen karar" in markdown
+        assert "Yarıda kesilen karar (neden: bir sonraki karar/çağrı" in markdown
 
     def test_hibrit_gercek_adaptorlerle_harcama_jev_ve_llm_toplamidir(self, tmp_path, monkeypatch):
         def build(_settings):
@@ -485,7 +495,8 @@ class TestReport:
 
         markdown, _ = build_report(run_dir)
 
-        assert "en kötü durum bedeliyle sayıldı (ücretsiz sayılmadı)" in markdown
+        assert "bilinemeyen ücret için en kötü durum bedeli" in markdown
+        assert "ücretsiz de sayılmadı" in markdown
 
     def test_rapor_ihlal_durdurmasini_ve_nedenini_gosterir(self, tmp_path, monkeypatch):
         huge = usage_block(input_tokens=5_000_000)
@@ -621,6 +632,10 @@ class TestCli:
                 "llm_only",
                 "--max-cost-usd",
                 "0.5",
+                "--budget-id",
+                "cli-deneme",
+                "--budget-dir",
+                str(budget_dir_for(tmp_path)),
                 "--out",
                 str(tmp_path),
             ]

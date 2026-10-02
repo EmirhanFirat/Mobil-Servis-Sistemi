@@ -64,3 +64,14 @@ Kaynaklar: https://platform.claude.com/docs/en/about-claude/pricing, `/about-cla
 - **Ayarlar:** sıcaklık 0, `thinking` yok, `max_tokens` 600 (yaklaşık 150 token gerekir), zaman aşımı 30 sn, otomatik retry yok; 3 deneme, 0,5–5 sn üstel bekleme, 429'da `retry-after`.
 - **Anahtar:** yalnızca `TALEPAKIS_ANTHROPIC_API_KEY` ortam değişkeni ve `TALEPAKIS_PAID_MODEL_CALLS_ENABLED=true` birlikte. Standart `ANTHROPIC_API_KEY` **bilerek okunmaz**: başka araçlar için tanımlı bir anahtar bu projede kazara ücretli çağrı yapmasın. Hata mesajlarına sunucu gövdesi konmaz; yalnızca durum kodu ve sınırlı `error.type`.
 - **Durum:** adaptör (`app/decision/llm_anthropic.py`, `llm_prompt.py`) yazıldı ve `httpx.MockTransport` ile test edildi. **Gerçek Anthropic'e hiç istek atılmadı**; gerçek modelin araç çağrısına uyma oranı, Türkçedeki doğruluğu ve gerçek token kullanımı **ölçülmedi**.
+
+## Anahtar ve bakiye (2026-10-02 araştırması)
+
+| | Anthropic | Jev (TypeSafe) |
+|---|---|---|
+| Anahtar nereden | [Claude Console](https://platform.claude.com) → Settings → API keys → Create key (anahtar yalnızca oluşturulurken bir kez gösterilir; resmî belge: [get-api-key](https://platform.claude.com/docs/en/get-api-key)) | **Resmî belgede (docs.typesafe.ai) anahtar yönetimi veya faturalandırma sayfası yok.** Üçüncü taraf kaynaklar `console.typesafe.ai` → API Keys diyor (doğrulanmadı). SDK ortam değişkeni `TYPESAFE_API_KEY`; bu projede `TALEPAKIS_JEV_API_KEY`. |
+| Bakiye | Önceden ödenen krediler: Console → Settings → Billing → Buy credits ([resmî makale](https://support.claude.com/en/articles/8977456-how-do-i-pay-for-my-api-usage)); krediler satın alınmadan **bir yıl sonra sona erer, iade edilmez**; kredi bitince API çağrısı yapılamaz. **Asgari yükleme tutarı resmî makalede belirtilmiyor** (üçüncü taraf kaynaklar 5 USD diyor; doğrulanmadı). | Resmî belgede bilgi yok. Üçüncü taraf kaynaklar kullandıkça öde, ücretsiz katman yok ve yeni kayıtların bir dönem durdurulduğunu söylüyor (doğrulanmadı). |
+| Fiyat (2026-10-02 yeniden doğrulandı) | Haiku 4.5: girdi 1 USD, çıktı 5 USD / 1M token | `jev-1.13.0`: girdi 0,042 USD, çıktı ücretsiz / 1M token ([models](https://docs.typesafe.ai/models.md)) |
+| Harcama sınırı | Console'da isteğe bağlı harcama sınırı konabilir (bkz. [Rate limits](https://platform.claude.com/docs/en/api/rate-limits)); sınır dolunca 400 döner | — |
+
+Güvenli giriş yöntemi `evaluation/README.md`'dedir (`Read-Host -AsSecureString`; anahtarı komut satırına yapıştırma).

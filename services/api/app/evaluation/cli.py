@@ -17,14 +17,19 @@ import sys
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from app.config import get_settings
+from app.decision.budget_ledger import BudgetLedger, LedgerError
 from app.decision.factory import MissingApiKey, PaidCallsDisabled
+from app.evaluation.detail import build_detail
 from app.evaluation.plan import PLANNABLE, estimate_plan, format_plan
+from app.evaluation.preflight import build_preflight
 from app.evaluation.report import write_report
 from app.evaluation.runner import (
     LIVE_STRATEGY_BUILDERS,
     STRATEGY_BUILDERS,
     LiveRunGuard,
     TestSplitGuard,
+    ledger_path,
     run_evaluation,
     select_samples,
 )
@@ -68,6 +73,13 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Toplam harcama sınırı (USD); gerçek stratejiler için ZORUNLU",
     )
+    run.add_argument(
+        "--budget-id",
+        default=None,
+        help="Bütçe defteri kimliği; gerçek stratejiler için ZORUNLU. Sınır, aynı kimlikli TÜM "
+        "çalıştırmaların toplamıdır ve süreçler arası diskte tutulur",
+    )
+    run.add_argument("--budget-dir", type=Path, default=None, help=argparse.SUPPRESS)
 
     plan = sub.add_parser(
         "plan", help="Gerçek stratejiler için yaklaşık ücreti göster (ağ isteği yapmaz)"
@@ -77,6 +89,29 @@ def main(argv: list[str] | None = None) -> int:
     plan.add_argument("--strategies", default=",".join(PLANNABLE))
     plan.add_argument("--shuffle-seed", type=int, default=None)
     plan.add_argument("--limit", type=int, default=None, help="Yalnızca ilk N örnek")
+
+    pre = sub.add_parser(
+        "preflight",
+        help="Canlı çalıştırma ön kontrolü: anahtar/bayrak durumu (değer yazdırmaz), fiyatlar, "
+        "bütçe defteri, seçilen örnekler, plan ve komut",
+    )
+    pre.add_argument("--dataset", default="v1")
+    pre.add_argument("--splits", default="dev")
+    pre.add_argument("--strategies", default=",".join(PLANNABLE))
+    pre.add_argument("--shuffle-seed", type=int, default=None)
+    pre.add_argument("--limit", type=int, default=None)
+    pre.add_argument("--max-cost-usd", type=_usd, required=True)
+    pre.add_argument("--budget-id", required=True)
+    pre.add_argument("--budget-dir", type=Path, default=None, help=argparse.SUPPRESS)
+
+    budget = sub.add_parser("budget", help="Bütçe defterinin durumunu göster (salt okunur)")
+    budget.add_argument("--budget-id", required=True)
+    budget.add_argument("--budget-dir", type=Path, default=None, help=argparse.SUPPRESS)
+
+    detail = sub.add_parser(
+        "detail", help="Kayıtlı çalıştırmadan örnek bazında ayrıntı yazdır (model çağrısı yok)"
+    )
+    detail.add_argument("--run", type=Path, required=True)
 
     report = sub.add_parser(
         "report", help="Kayıtlı bir çalıştırmadan rapor üret (model çağrısı yok)"
@@ -93,6 +128,26 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit,
             )
             print(format_plan(estimate_plan(samples, _csv(args.strategies))))
+        elif args.command == "preflight":
+            text, ready = build_preflight(
+                settings=get_settings(),
+                version=args.dataset,
+                splits=_csv(args.splits),
+                strategies=_csv(args.strategies),
+                max_cost_usd=args.max_cost_usd,
+                budget_id=args.budget_id,
+                budget_dir=args.budget_dir,
+                shuffle_seed=args.shuffle_seed,
+                limit=args.limit,
+            )
+            print(text)
+            return 0 if ready else 3
+        elif args.command == "budget":
+            ledger = BudgetLedger.read(ledger_path(args.budget_id, args.budget_dir))
+            for key, value in ledger.status().items():
+                print(f"{key}: {value}")
+        elif args.command == "detail":
+            print(build_detail(args.run))
         elif args.command == "run":
             names = _csv(args.strategies)
             splits = _csv(args.splits)
@@ -111,13 +166,22 @@ def main(argv: list[str] | None = None) -> int:
                 shuffle_seed=args.shuffle_seed,
                 final=args.final,
                 max_cost_usd=args.max_cost_usd,
+                budget_id=args.budget_id,
+                budget_dir=args.budget_dir,
                 limit=args.limit,
             )
             print(f"Çalıştırma kaydedildi: {out}")
             print(f'Rapor için: python -m app.evaluation report --run "{out}"')
         else:
             print(f"Rapor yazıldı: {write_report(args.run)}")
-    except (TestSplitGuard, LiveRunGuard, PaidCallsDisabled, MissingApiKey, ValueError) as error:
+    except (
+        TestSplitGuard,
+        LiveRunGuard,
+        PaidCallsDisabled,
+        MissingApiKey,
+        LedgerError,
+        ValueError,
+    ) as error:
         print(f"Hata: {error}", file=sys.stderr)
         return 2
     return 0

@@ -124,11 +124,11 @@ class TestBudgetGuard:
     def test_rezervasyon_ve_kapanis_aritmetigi(self):
         guard = BudgetGuard(Decimal("1"))
 
-        guard.reserve(Decimal("0.4"))
+        reservation = guard.reserve(Decimal("0.4"))
         assert guard.remaining() == Decimal("0.6")
         with pytest.raises(BudgetExhausted):
             guard.reserve(Decimal("0.7"))  # sığmaz
-        guard.settle(Decimal("0.4"), Decimal("0.1"))
+        guard.settle(reservation, Decimal("0.1"))
 
         assert guard.reserved == 0 and guard.spent == Decimal("0.1")
         assert guard.known_spent == Decimal("0.1") and guard.conservative_charges == 0
@@ -136,18 +136,18 @@ class TestBudgetGuard:
 
     def test_bilinmeyen_ucret_sifir_sayilmaz_rezerve_edilen_en_kotu_bedel_yazilir(self):
         guard = BudgetGuard(Decimal("1"))
-        guard.reserve(Decimal("0.3"))
+        reservation = guard.reserve(Decimal("0.3"))
 
-        guard.settle(Decimal("0.3"), None)
+        guard.settle(reservation, None)
 
         assert guard.spent == Decimal("0.3") and guard.known_spent == 0
         assert guard.conservative_charges == 1 and guard.remaining() == Decimal("0.7")
 
     def test_gercek_ucret_rezervasyonu_asarsa_ihlal_sayilir_ve_gercek_ucret_yazilir(self):
         guard = BudgetGuard(Decimal("1"))
-        guard.reserve(Decimal("0.1"))
+        reservation = guard.reserve(Decimal("0.1"))
 
-        guard.settle(Decimal("0.1"), Decimal("0.5"))
+        guard.settle(reservation, Decimal("0.5"))
 
         assert guard.bound_violations == 1 and guard.spent == Decimal("0.5")
 
@@ -164,29 +164,29 @@ class TestBudgetGuard:
         for _ in range(500):
             amount = Decimal(rng.randint(1, 300)) / 1000
             try:
-                guard.reserve(amount)
+                reservation = guard.reserve(amount)
             except BudgetExhausted:
                 continue
             assert guard.spent + guard.reserved <= guard.cap
             # Gerçek ücret rezervasyonun altında; bazen bilinmiyor (en kötü bedel).
             actual = None if rng.random() < 0.3 else amount / rng.randint(2, 6)
-            guard.settle(amount, actual)
+            guard.settle(reservation, actual)
             assert guard.spent + guard.reserved <= guard.cap
         assert guard.bound_violations == 0 and guard.reserved == 0
 
     def test_ozet_kayda_yazilacak_alanlari_icerir(self):
         guard = BudgetGuard(Decimal("2"))
-        guard.reserve(Decimal("0.5"))
-        guard.settle(Decimal("0.5"), None)
+        reservation = guard.reserve(Decimal("0.5"))
+        guard.settle(reservation, None)
 
-        assert guard.summary() == {
-            "max_cost_usd": "2",
-            "spent_usd": "0.5",
-            "known_spent_usd": "0",
-            "conservative_charges": 1,
-            "bound_violations": 0,
-            "calls": 1,
-        }
+        summary = guard.summary()
+        assert summary["max_cost_usd"] == "2" and summary["spent_usd"] == "0.5"
+        assert summary["known_spent_usd"] == "0"  # gerçek (sağlayıcı kullanımından) harcama yok
+        assert summary["conservative_spent_usd"] == "0.5"  # AYRI: en kötü durum bedeli
+        assert summary["conservative_charges"] == 1 and summary["bound_violations"] == 0
+        assert summary["calls"] == 1 and summary["budget_id"] is None
+        assert summary["prior_spent_usd"] == "0" and summary["prior_unresolved_reserved_usd"] == "0"
+        assert summary["total_spent_usd"] == "0.5" and summary["remaining_usd"] == "1.5"
 
 
 def budgeted(handler, cap, **kwargs):

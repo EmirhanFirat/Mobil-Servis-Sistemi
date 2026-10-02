@@ -21,6 +21,7 @@ açıkça listelenir.
 import json
 import platform
 import random
+import re
 import subprocess
 import time
 from collections.abc import Callable
@@ -35,6 +36,7 @@ from app.decision.budget import (
     BudgetGuard,
     worst_decision_cost,
 )
+from app.decision.budget_ledger import BudgetLedger
 from app.decision.contract import BudgetExhausted, DecisionInput, DecisionUnavailable, StrategyName
 from app.decision.factory import anthropic_provider_from_settings, jev_provider_from_settings
 from app.decision.pricing import PRICES
@@ -74,6 +76,16 @@ class TestSplitGuard(RuntimeError):
     """Test bölümü nihai olmayan bir çalıştırmada istendi."""
 
     __test__ = False  # pytest bunu test sınıfı sanmasın
+
+
+_BUDGET_ID = re.compile(r"[A-Za-z0-9._-]{1,60}")
+
+
+def ledger_path(budget_id: str | None, budget_dir: Path | None = None) -> Path:
+    """Bütçe defterinin yolu: evaluation/budget/<kimlik>.json (Git'e girmez)."""
+    if not budget_id or not _BUDGET_ID.fullmatch(budget_id):
+        raise ValueError("Geçersiz bütçe kimliği.")
+    return (budget_dir or repo_root() / "evaluation" / "budget") / f"{budget_id}.json"
 
 
 class LiveRunGuard(RuntimeError):
@@ -154,6 +166,30 @@ def select_samples(
     return samples if limit is None else samples[:limit]
 
 
+# Hızlı durdurma: sistematik bir hata (yanlış anahtar, hatalı istek, süren kesinti) her örnekte
+# yeniden denenip bütçeyi boşuna "en kötü bedel" olarak yakmasın. Yalnızca gerçek (bütçeli)
+# çalıştırmalarda uygulanır.
+FATAL_CALL_STATUSES = frozenset({"auth_error", "bad_request"})
+MAX_CONSECUTIVE_FAILURES = 2
+
+
+def _circuit_breaker(name: str, prediction: dict, failures: dict[str, int]) -> dict | None:
+    """Durdurulmalı mı? Kalıcı istemci hatası (401/402/403, 400/413/422...) tek seferde durdurur;
+    aynı stratejinin ardışık iki kararı tüm denemelerine rağmen başarısız olursa durdurur."""
+    for call in prediction.get("calls", []):
+        if call["status"] in FATAL_CALL_STATUSES:
+            return {
+                "reason": "provider_error",
+                "provider": call["provider"],
+                "strategy": name,
+                "status": call["status"],
+            }
+    failures[name] = failures.get(name, 0) + 1 if prediction.get("failed") else 0
+    if failures[name] >= MAX_CONSECUTIVE_FAILURES:
+        return {"reason": "provider_unavailable", "strategy": name}
+    return None
+
+
 def _attach_budget(strategy: object, guard: BudgetGuard) -> None:
     """Stratejideki her gerçek sağlayıcıyı bütçe korumasıyla sarar (her çağrı rezervasyonlu)."""
     if isinstance(strategy, ProviderStrategy):
@@ -199,6 +235,8 @@ def run_evaluation(
     shuffle_seed: int | None = None,
     final: bool = False,
     max_cost_usd: Decimal | None = None,
+    budget_id: str | None = None,
+    budget_dir: Path | None = None,
     limit: int | None = None,
     settings: Settings | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -221,6 +259,15 @@ def run_evaluation(
             "Gerçek (ücretli) strateji için pozitif bir toplam harcama sınırı zorunlu "
             "(--max-cost-usd). Önce `plan` komutuyla yaklaşık ücreti gör."
         )
+    if live and not budget_id:
+        raise LiveRunGuard(
+            "Gerçek (ücretli) strateji için bütçe defteri kimliği zorunlu (--budget-id). Toplam "
+            "sınır, aynı kimlikli TÜM çalıştırmaların toplamıdır ve süreçler arası diskte tutulur."
+        )
+    if budget_id is not None and not _BUDGET_ID.fullmatch(budget_id):
+        raise ValueError(
+            "Bütçe kimliği yalnızca harf, rakam, '.', '_' ve '-' içerebilir (en çok 60)."
+        )
     if max_cost_usd is not None and max_cost_usd <= 0:
         raise ValueError("Harcama sınırı pozitif olmalı.")
 
@@ -234,28 +281,39 @@ def run_evaluation(
             strategies[name] = LIVE_STRATEGY_BUILDERS[name](live_settings)
         else:
             strategies[name] = STRATEGY_BUILDERS[name]()
-    # Gerçek stratejilerin her sağlayıcı çağrısı bütçe rezervasyonundan geçer.
-    guard = BudgetGuard(max_cost_usd) if live and max_cost_usd is not None else None
+    started = now()
+    run_id = f"{started.strftime('%Y%m%dT%H%M%SZ')}-{version}-{'+'.join(splits)}"
+    out_dir = (out_root or repo_root() / "evaluation" / "runs") / run_id
+
+    # Gerçek stratejilerin her sağlayıcı çağrısı bütçe rezervasyonundan geçer ve rezervasyonlar
+    # KALICI deftere yazılır: süreç yeniden başlarsa önceki harcama ve çözülmemiş rezervasyonlar
+    # kalan bütçeden düşülür; yeni bir sınır açılmaz.
+    ledger: BudgetLedger | None = None
+    guard: BudgetGuard | None = None
+    try:
+        if live:
+            ledger = BudgetLedger.open(
+                ledger_path(budget_id, budget_dir), budget_id=budget_id, cap=max_cost_usd
+            )
+            guard = BudgetGuard(ledger.cap, ledger=ledger, run_id=run_id)
+        out_dir.mkdir(parents=True, exist_ok=False)
+    except BaseException:
+        if ledger is not None:
+            ledger.release()
+        for strategy in strategies.values():
+            _close(strategy)
+        raise
     live_strategies = [strategies[n] for n in strategy_names if n in LIVE_STRATEGY_BUILDERS]
     if guard is not None:
         for strategy in live_strategies:
             _attach_budget(strategy, guard)
-
-    started = now()
-    run_id = f"{started.strftime('%Y%m%dT%H%M%SZ')}-{version}-{'+'.join(splits)}"
-    out_dir = (out_root or repo_root() / "evaluation" / "runs") / run_id
-    try:
-        out_dir.mkdir(parents=True, exist_ok=False)
-    except BaseException:
-        for strategy in strategies.values():
-            _close(strategy)
-        raise
 
     names = list(strategies)
     completed = 0
     stopped: dict | None = None
     aborted: dict | None = None
     failure: Exception | None = None
+    failures: dict[str, int] = {}  # strateji başına ardışık başarısız karar sayısı
     try:
         with (out_dir / "predictions.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
             for index, sample in enumerate(samples):
@@ -266,23 +324,34 @@ def run_evaluation(
                         break
                 # Rotasyon: her örnekte başlangıç stratejisi değişir (sıra etkisini azaltır).
                 rotation = names[index % len(names) :] + names[: index % len(names)]
+                written = 0
                 for name in rotation:
                     prediction = _predict(name, strategies[name], sample)
-                    if prediction.get("aborted"):
-                        # Bütçe bu kararın ortasında bitti (ön denetim aşılmış olsa da). Yarım karar
-                        # tahmin sayılmaz ama harcanan çağrıları kayıpta kalmaz.
+                    if prediction.get("aborted"):  # bütçe bu kararın ortasında bitti
+                        halt = {"reason": "budget"}
+                    else:
+                        halt = _circuit_breaker(name, prediction, failures) if guard else None
+                    if prediction.get("aborted") or (halt and halt["reason"] == "provider_error"):
+                        # Yarım karar veya kalıcı istemci hatası tahmin sayılmaz (örnek rapor
+                        # dışı kalır) ama harcanan çağrılar kayıpta kalmaz: run.json'da saklanır.
                         aborted = {
                             "sample_id": sample.id,
                             "strategy": name,
+                            "reason": halt["reason"],
                             "calls": prediction["calls"],
                         }
-                        stopped = {"reason": "budget"}
+                        stopped = halt
                         break
                     handle.write(json.dumps(prediction, ensure_ascii=False) + "\n")
-                if aborted is not None:
-                    break
+                    written += 1
+                    if halt:  # ardışık başarısızlık: bu karar kayıtlı, ama durulur
+                        stopped = halt
+                        break
                 handle.flush()  # kesintide o ana dek olan tahminler diskte kalır
-                completed += 1
+                if written == len(rotation):
+                    completed += 1  # tüm stratejiler bu örneği bitirdi
+                if stopped is not None:
+                    break
     except KeyboardInterrupt:
         stopped = {"reason": "interrupted"}
     except Exception as exc:  # kaydı yine de yaz; sonra yeniden fırlat
@@ -291,6 +360,8 @@ def run_evaluation(
     finally:
         for strategy in strategies.values():
             _close(strategy)
+        if ledger is not None:
+            ledger.release()
     if stopped:
         stopped.update(samples_completed=completed, samples_planned=len(samples))
 
@@ -321,9 +392,7 @@ def run_evaluation(
         },
         "budget": {
             "live": live,
-            "method": "çağrı başına en kötü durum rezervasyonu (app/decision/budget.py)"
-            if live
-            else None,
+            "method": "çağrı başına en kötü durum rezervasyonu + kalıcı defter" if live else None,
             **(
                 guard.summary()
                 if guard is not None

@@ -20,6 +20,8 @@ select = ["E", "F", "I", "B", "UP"]
 "app/decision/jev_questions.py" = ["E501"]
 # Markdown tablo satırları bölünemez.
 "app/evaluation/report.py" = ["E501"]
+"app/evaluation/detail.py" = ["E501"]
+"app/evaluation/preflight.py" = ["E501"]
 # Migration'lardaki CHECK ifadeleri tek bir SQL metnidir; bölmek içeriği değiştirir.
 "alembic/versions/*.py" = ["E501"]
 

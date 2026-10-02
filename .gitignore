@@ -49,3 +49,6 @@ desktop.ini
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/launch.json
+
+# Bütçe defteri (yerel harcama durumu; commitlenmez)
+evaluation/budget/

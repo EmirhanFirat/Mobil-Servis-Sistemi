@@ -9,6 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.evaluation.dataset import dataset_sha256, load_samples
+from app.evaluation.detail import SMALL_RUN_LIMIT, build_detail
 from app.evaluation.metrics import (
     ClassScore,
     Prediction,
@@ -30,9 +31,19 @@ STOP_REASONS = {
         "gerçek ücret rezerve edilen üst sınırı aştı; ücret tahmini varsayımı güvenilmez, durduruldu"
     ),
     "unbounded": "ücretin üst sınırı hesaplanamadı (fiyat veya çıktı tavanı bilinmiyor), durduruldu",
+    "provider_error": (
+        "bir sağlayıcı kalıcı bir istemci hatası döndürdü (anahtar veya istek hatası); bütçeyi "
+        "boşuna yakmamak için hemen durduruldu"
+    ),
+    "provider_unavailable": (
+        "bir stratejinin ardışık iki kararı tüm denemelerine rağmen başarısız oldu "
+        "(sağlayıcı kesintisi); bütçeyi boşuna yakmamak için durduruldu"
+    ),
     "interrupted": "çalıştırma elle kesildi",
     "error": "beklenmeyen bir hata oluştu",
 }
+SMALL_SAMPLE_WARNING = 30
+
 LIMITATIONS = """\
 ## Sınırlamalar ve okuma notları
 
@@ -247,6 +258,13 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
     lines = [f"# Değerlendirme raporu — `{run['run_id']}`", ""]
     if any_mock:
         lines += [MOCK_BANNER, ""]
+    if len(complete) < SMALL_SAMPLE_WARNING:
+        lines += [
+            f"> **KÜÇÜK ÖRNEKLEM ({len(complete)} örnek):** bu çalıştırma bağlantıyı, biçimi ve "
+            "çağrı kayıtlarını doğrular. Doğruluk, güvenilirlik veya maliyet tasarrufu sonucu "
+            "çıkarılamaz; aşağıdaki yüzdeler ve aralıklar yalnızca betimleyicidir.",
+            "",
+        ]
     if stopped:
         lines += [
             f"> **UYARI — ÇALIŞTIRMA YARIDA KALDI:** {STOP_REASONS.get(stopped['reason'], stopped['reason'])}. "
@@ -269,31 +287,36 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
         "- Stratejiler: " + ", ".join(f"`{s['name']}`" for s in run["strategies"]),
     ]
     if budget.get("live"):
-        lines.append(
-            f"- Harcama (gerçek çağrılar): toplam {usd(Decimal(budget['spent_usd']))} USD "
-            f"(bunun {usd(Decimal(budget['known_spent_usd']))} USD'si sağlayıcı kullanımıyla "
-            f"hesaplandı), sınır {usd(Decimal(budget['max_cost_usd']))} USD; {budget['calls']} çağrı"
-            + (
-                f"; **{budget['conservative_charges']} çağrının ücreti bilinemediği için en kötü "
-                "durum bedeliyle sayıldı (ücretsiz sayılmadı)**"
-                if budget.get("conservative_charges")
-                else ""
+        lines += [
+            f"- **Bütçe defteri `{budget.get('budget_id')}`** — toplam sınır "
+            f"{usd(Decimal(budget['max_cost_usd']))} USD (aynı kimlikli tüm çalıştırmaların toplamı)",
+            f"  - Bu çalıştırmada **gerçek (sağlayıcı kullanımından hesaplanan) ücret:** "
+            f"{usd(Decimal(budget['known_spent_usd']))} USD ({budget['calls']} çağrı)",
+            f"  - Bu çalıştırmada **bilinemeyen ücret için en kötü durum bedeli** (gerçek harcama "
+            f"olmayabilir, ücretsiz de sayılmadı): {usd(Decimal(budget['conservative_spent_usd']))} "
+            f"USD ({budget['conservative_charges']} çağrı)",
+            f"  - Önceki çalıştırmalardan kesinleşmiş harcama: "
+            f"{usd(Decimal(budget['prior_spent_usd']))} USD; **çözülmemiş rezervasyon** (çöken "
+            f"süreçten kalan, en kötü bedelle düşüldü): "
+            f"{usd(Decimal(budget['prior_unresolved_reserved_usd']))} USD",
+            f"  - Defter toplamı (önceki + bu çalıştırma): {usd(Decimal(budget['total_spent_usd']))} "
+            f"USD; **kalan bütçe {usd(Decimal(budget['remaining_usd']))} USD**",
+        ]
+        if budget.get("bound_violations"):
+            lines.append(
+                f"  - **{budget['bound_violations']} çağrıda gerçek ücret rezervasyonu aştı** "
+                "(üst sınır varsayımı ihlali; çalıştırma durduruldu)."
             )
-            + (
-                f"; **{budget['bound_violations']} çağrıda gerçek ücret rezervasyonu aştı**"
-                if budget.get("bound_violations")
-                else ""
-            )
-        )
         lines.append(
-            "- Sınır yöntemi: her çağrıdan (ve retry'dan) önce ücretin üst sınırı rezerve edilir; "
-            "garanti edilemeyenler için `app/decision/budget.py` başına ve `docs/DECISIONS.md` "
-            "D28'e bak."
+            "- Sınır yöntemi: her çağrıdan (ve retry'dan) önce ücretin üst sınırı rezerve edilir ve "
+            "diske yazılır; garanti edilemeyenler için `app/decision/budget.py` başına ve "
+            "`docs/DECISIONS.md` D28'e bak."
         )
     if run.get("aborted_prediction"):
         aborted = run["aborted_prediction"]
         lines.append(
-            f"- Bütçe nedeniyle yarıda kesilen karar: `{aborted['strategy']}` / `{aborted['sample_id']}` "
+            f"- Yarıda kesilen karar (neden: {STOP_REASONS.get(aborted.get('reason', 'budget'), '?')}): "
+            f"`{aborted['strategy']}` / `{aborted['sample_id']}` "
             f"({len(aborted['calls'])} çağrı harcandı; tahmin sayılmadı, kayıtlar `run.json`'da)."
         )
     if dropped:
@@ -315,6 +338,8 @@ def build_report(run_dir: Path) -> tuple[str, dict]:
         all_metrics[split] = {m.strategy: metrics_to_dict(m) for m in split_metrics}
         lines += [_split_section(split, split_metrics), ""]
 
+    if 0 < len(complete) <= SMALL_RUN_LIMIT and (run_dir / "predictions.jsonl").exists():
+        lines += [build_detail(run_dir)]
     lines += [LIMITATIONS]
     return "\n".join(lines) + "\n", {
         "run_id": run["run_id"],

@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from app.decision.budget_ledger import BudgetLedger
 from app.decision.contract import (
     ALL_QUESTIONS,
     BudgetExhausted,
@@ -87,54 +88,100 @@ def worst_decision_cost(strategy: object, data: DecisionInput) -> Decimal:
     return Decimal(0)  # kurallı taban: çağrı yok
 
 
+@dataclass(frozen=True)
+class Reservation:
+    """Çağrıdan önce rezerve edilen tutar; `seq`, kalıcı defterdeki satırdır (varsa)."""
+
+    amount: Decimal
+    seq: int | None = None
+
+
 @dataclass
 class BudgetGuard:
-    """Toplam harcama sınırı. Tek iş parçacığı için (çalıştırıcı eşzamanlılık 1)."""
+    """Toplam harcama sınırı. Tek iş parçacığı için (çalıştırıcı eşzamanlılık 1).
+
+    `ledger` verilirse sınır ve önceki harcama KALICI defterden gelir: aynı `budget_id` altındaki
+    önceki çalıştırmaların kesinleşmiş harcaması ve çözülmemiş (çöken süreçten kalan)
+    rezervasyonları kalan bütçeden DÜŞÜLÜR; her rezervasyon çağrıdan önce diske yazılır.
+    """
 
     cap: Decimal
+    ledger: BudgetLedger | None = None
+    run_id: str = ""
+    # Bu çalıştırmadan ÖNCE defterde olanlar (yalnızca ledger ile dolar).
+    prior_spent: Decimal = Decimal(0)
+    prior_unresolved: Decimal = Decimal(0)
+    # Bu çalıştırma.
     spent: Decimal = Decimal(0)  # kesinleşmiş: gerçek ücret veya muhafazakâr (en kötü durum) bedel
-    known_spent: Decimal = Decimal(0)  # yalnızca sağlayıcı kullanımıyla hesaplanan kısım
+    known_spent: Decimal = Decimal(0)  # yalnızca sağlayıcı kullanımıyla hesaplanan GERÇEK kısım
+    conservative_spent: Decimal = Decimal(0)  # bilinemeyen ücret için en kötü durum bedelleri
     reserved: Decimal = Decimal(0)  # uçuştaki çağrıların rezervasyonu
     conservative_charges: int = 0  # maliyeti bilinemediği için en kötü durumla sayılan çağrılar
     bound_violations: int = 0  # gerçek ücreti rezervasyonu aşan çağrılar (varsayım ihlali)
     calls: int = 0
 
+    def __post_init__(self) -> None:
+        if self.ledger is not None:
+            self.cap = self.ledger.cap  # sınırın tek kaynağı defterdir
+            self.prior_spent = self.ledger.settled_total()
+            self.prior_unresolved = self.ledger.pending_total()
+
     def remaining(self) -> Decimal:
-        return self.cap - self.spent - self.reserved
+        committed = self.prior_spent + self.prior_unresolved + self.spent + self.reserved
+        return self.cap - committed
 
     def can_afford(self, amount: Decimal) -> bool:
         return amount <= self.remaining()
 
-    def reserve(self, amount: Decimal) -> None:
+    def reserve(self, amount: Decimal, *, provider: str = "", model: str = "") -> Reservation:
         if not self.can_afford(amount):
             raise BudgetExhausted(
                 f"Harcama sınırı: {amount:.6f} USD rezerve edilemez (kalan {self.remaining():.6f})."
             )
+        seq = None
+        if self.ledger is not None:
+            # Kalıcı yazılmadan istek gönderilmez: yazma başarısızsa istisna çağrıyı durdurur.
+            seq = self.ledger.begin(self.run_id, provider, model, amount)
         self.reserved += amount
+        return Reservation(amount, seq)
 
-    def settle(self, reserved: Decimal, actual: Decimal | None) -> None:
+    def settle(self, reservation: Reservation, actual: Decimal | None) -> None:
         """Rezervasyonu bırakır; yerine gerçek ücreti (biliniyorsa) ya da rezerve edilen en kötü
         durum bedelini yazar."""
-        self.reserved -= reserved
+        self.reserved -= reservation.amount
         self.calls += 1
         if actual is None:
-            charge = reserved
+            charge = reservation.amount
             self.conservative_charges += 1
+            self.conservative_spent += charge
         else:
             charge = actual
             self.known_spent += actual
-            if actual > reserved:
+            if actual > reservation.amount:
                 self.bound_violations += 1
         self.spent += charge
+        if self.ledger is not None and reservation.seq is not None:
+            self.ledger.settle(reservation.seq, charge, known=actual is not None)
 
     def summary(self) -> dict:
+        total = self.prior_spent + self.spent
         return {
+            "budget_id": None if self.ledger is None else self.ledger.budget_id,
             "max_cost_usd": str(self.cap),
+            # Bu çalıştırma: gerçek (sağlayıcı kullanımından) ve en kötü durum rezervasyonu AYRI.
             "spent_usd": str(self.spent),
             "known_spent_usd": str(self.known_spent),
+            "conservative_spent_usd": str(self.conservative_spent),
             "conservative_charges": self.conservative_charges,
             "bound_violations": self.bound_violations,
             "calls": self.calls,
+            # Aynı bütçe defterinin önceki çalıştırmaları.
+            "prior_spent_usd": str(self.prior_spent),
+            "prior_unresolved_reserved_usd": str(self.prior_unresolved),
+            # Defter toplamı: önceki + bu çalıştırma + çözülmemiş rezervasyonlar.
+            "total_spent_usd": str(total),
+            "remaining_usd": str(self.cap - total - self.prior_unresolved),
+            "ledger": None if self.ledger is None else str(self.ledger.path),
         }
 
 
@@ -176,8 +223,10 @@ class BudgetedProvider:
     def classify(
         self, data: DecisionInput, questions: tuple[Question, ...], strategy: StrategyName
     ) -> ProviderResult:
-        reservation = max_call_cost(self.inner, data, questions)
-        self.guard.reserve(reservation)  # yetersizse BudgetExhausted: istek HİÇ gönderilmez
+        amount = max_call_cost(self.inner, data, questions)
+        # Yetersizse BudgetExhausted: istek HİÇ gönderilmez. Defter varsa rezervasyon çağrıdan ÖNCE
+        # diske yazılır.
+        reservation = self.guard.reserve(amount, provider=self.inner.name, model=self.inner.model)
         try:
             result = self.inner.classify(data, questions, strategy)
         except ProviderError as error:
