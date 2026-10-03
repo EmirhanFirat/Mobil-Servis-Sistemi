@@ -129,6 +129,19 @@ cd services\api
 
 Geliştirme veritabanını sıfırlamak için: `docker compose down -v`, sonra yukarıdaki 1–3. adımlar.
 
+## Sorun giderme
+
+**Girişte "Sunucu zamanında yanıt vermedi" veya "Sunucu şu anda veritabanına ulaşamıyor"** (hem telefonda hem web önizlemesinde): neredeyse her zaman Docker'daki veritabanı kapalıdır. Docker Desktop yeniden başlayınca (bilgisayar açılışı, güncelleme) konteyner durabilir.
+
+```powershell
+docker compose ps                  # db satırı "Up (healthy)" olmalı
+docker compose up -d db            # kapalıysa başlatır; veri korunur (pgdata birimi)
+```
+
+API'nin kendisi ayaktaysa `http://127.0.0.1:8000/health/ready` adresi `{"status":"ok","database":"ok"}` demelidir; veritabanı yoksa 503 döner. `docker-compose.yml` artık `restart: unless-stopped` içerir: konteyner bir kez bu ayarla oluşturulduktan sonra Docker Desktop her açıldığında veritabanı kendiliğinden kalkar. Veritabanı yokken API artık asılı kalmaz; 5 sn içinde açık bir 503 (`database_unavailable`) döner, worker çökmeden bekleyip yeniden dener.
+
+**Telefon API'ye ulaşamıyor, ama Expo uygulaması açılıyor:** bilgisayarın Wi-Fi adresi ağ değişince değişir (`(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress`). Telefonun tarayıcısında `http://<IP>:8000/health` açılmıyorsa sorun ağdadır (farklı ağ, istemci yalıtımı veya güvenlik duvarı); API'yi `--host 0.0.0.0` ile başlattığından emin ol ve Expo'yu o ağdayken yeniden başlat. `EXPO_PUBLIC_API_URL` verirsen `<IP>` yer tutucusu yerine gerçek adresi yaz; Expo'yu o değişkenle başlattığın sekmede ver.
+
 ## Telefondan API'ye erişim (localhost ve bilgisayarın IP'si)
 
 Telefondaki uygulamada `localhost` veya `127.0.0.1`, **telefonun kendisi** demektir; bilgisayardaki API'ye ulaşmaz. Telefondan erişmek için:
