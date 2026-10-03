@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.domain.decision_jobs import DECISION_OFF, FREE_STRATEGY_NAMES
@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Varsayılan değer yalnızca docker-compose.yml'deki geliştirme veritabanına uyar.
     # "localhost" yerine 127.0.0.1: Windows'ta localhost önce IPv6'yı dener ve ~8 sn bekler.
     database_url: str = "postgresql+psycopg://talepakis:talepakis@127.0.0.1:5432/talepakis"
+    # Veritabanına bağlanırken en çok beklenecek süre (sn). psycopg'un varsayılanı Windows'ta ~130
+    # sn sürer: veritabanı kapalıyken her istek dakikalarca asılı kalır ve istemci "sunucu zamanında
+    # yanıt vermedi" der. Kısa tutulur ki istek açık bir 503 (database_unavailable) ile bitsin.
+    database_connect_timeout_s: int = Field(default=5, ge=1, le=60)
 
     # Oturum belirteçlerini imzalar. Mobil uygulamaya veya depoya asla konmaz.
     secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)

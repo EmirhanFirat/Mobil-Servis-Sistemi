@@ -122,6 +122,27 @@ describe('hata dönüşümü', () => {
     )
   })
 
+  it('veritabanı yok (503 database_unavailable) yanıtını açıkça söyler; metni sunucudan almaz', () => {
+    const result = messageFromBody(503, {
+      detail: 'Traceback ... password=hunter2',
+      code: 'database_unavailable',
+    })
+
+    expect(result).toEqual({
+      code: 'database_unavailable',
+      message: 'Sunucu şu anda veritabanına ulaşamıyor. Biraz sonra tekrar dene.',
+    })
+    expect(result.message).not.toContain('hunter2')
+  })
+
+  it('başka 503 (ve başka kodlu 5xx) genel mesaj verir', () => {
+    const generic = 'Sunucuda bir sorun oluştu. Biraz sonra tekrar dene.'
+
+    expect(messageFromBody(503, { detail: 'x', code: 'baska_kod' }).message).toBe(generic)
+    expect(messageFromBody(503, null).message).toBe(generic)
+    expect(messageFromBody(500, { code: 'database_unavailable' }).message).toBe(generic)
+  })
+
   it('JSON olmayan hata gövdesinde de çökmez', async () => {
     const { api } = setup(() => new Response('<html>Bad Gateway</html>', { status: 502 }))
 

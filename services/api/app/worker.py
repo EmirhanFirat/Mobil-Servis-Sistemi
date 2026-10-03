@@ -19,7 +19,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -35,6 +36,11 @@ StrategyBuilder = Callable[[str], object]
 # İş düzeyinde yeniden deneme (yalnızca beklenmeyen hatalar); sağlayıcı retry'ı stratejinin içinde.
 RETRY_BASE_S = 30
 RETRY_MAX_S = 300
+
+# Veritabanına ulaşılamayınca (Docker yeniden başlıyor, bağlantı koptu) worker çökmez: üstel
+# beklemeyle yeniden dener. Bu bir işin başarısızlığı değil altyapı kesintisidir; iş hakkı
+# harcanmaz.
+DB_OUTAGE_MAX_WAIT_S = 30.0
 
 
 def _utcnow() -> datetime:
@@ -126,16 +132,36 @@ def run_forever(
     build_strategy: StrategyBuilder = build_free_strategy,
     clock: Callable[[], datetime] = _utcnow,
 ) -> int:
-    """Durdurulana dek sürekli işler. İşlenen iş sayısını döndürür."""
+    """Durdurulana dek sürekli işler. İşlenen iş sayısını döndürür.
+
+    Veritabanına ulaşılamazsa (OperationalError, havuz zaman aşımı) çökmez: bir mesaj yazıp üstel
+    beklemeyle (en çok DB_OUTAGE_MAX_WAIT_S) yeniden dener, veritabanı dönünce kaldığı yerden
+    sürer. Başka beklenmeyen hatalar (kod hatası) gizlenmez, yukarı çıkar."""
     processed = 0
+    outage = 0  # ardışık veritabanı ulaşılamazlığı sayısı
     while not stop.is_set():
-        if process_next(
-            session_factory,
-            worker_id=worker_id,
-            lease=lease,
-            build_strategy=build_strategy,
-            clock=clock,
-        ):
+        try:
+            handled = process_next(
+                session_factory,
+                worker_id=worker_id,
+                lease=lease,
+                build_strategy=build_strategy,
+                clock=clock,
+            )
+        except (OperationalError, PoolTimeoutError) as error:
+            outage += 1
+            wait = min(max(poll_seconds, 1.0) * 2**outage, DB_OUTAGE_MAX_WAIT_S)
+            print(
+                f"Veritabanına ulaşılamıyor ({type(error).__name__}); {wait:.0f} sn sonra "
+                "yeniden denenecek. Docker'daki veritabanı çalışıyor mu? (docker compose up -d db)",
+                flush=True,
+            )
+            stop.wait(wait)
+            continue
+        if outage:
+            print("Veritabanına yeniden ulaşıldı; çalışmaya devam ediliyor.", flush=True)
+            outage = 0
+        if handled:
             processed += 1
         else:
             stop.wait(poll_seconds)
@@ -181,7 +207,14 @@ def main(argv: list[str] | None = None) -> int:
         return Session(engine)
 
     if args.once:
-        count = drain(session_factory, worker_id=worker_id, lease=lease)
+        try:
+            count = drain(session_factory, worker_id=worker_id, lease=lease)
+        except (OperationalError, PoolTimeoutError) as error:
+            print(
+                f"Veritabanına ulaşılamıyor ({type(error).__name__}). "
+                "Docker'daki veritabanı çalışıyor mu? (docker compose up -d db)"
+            )
+            return 1
         print(f"{count} karar işi işlendi.")
         return 0
 

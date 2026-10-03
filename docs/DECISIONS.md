@@ -172,6 +172,19 @@ Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; ye
 
 **Bilinen sınırlar.** (1) Bilgi amaçlı sorular için hibrit, `jev_only` ve `llm_only` ile aynı bilgiyi vermeyebilir (çözülmemiş kalır); bu sorular v1'de değerlendirilmediği için ölçümü etkilemez, ama etiketlenirse (v2) yeniden düşünülmeli. (2) Karar sorularındaki geçiş oranı henüz ölçülmedi; v2'nin gerçekten daha az çağrı yaptığı gerçek veriyle doğrulanmalıdır (yalnızca kayıtlı Jev güvenleriyle çevrimdışı yeniden oynatma yapıldı). (3) LLM aynı soruya bağlama göre farklı cevap verebiliyor; `jev_only` + `llm_only` çıktılarından eşik taramasını çevrimdışı simüle etmek yaklaşık sonuç verir, son doğrulama gerçek hibrit çalıştırmasıyla yapılır.
 
+## D32 — Veritabanı ulaşılamazken API asılmaz: bağlantıya üst süre ve açık 503; worker bekler; konteyner kendiliğinden kalkar (2026-10-03)
+
+**Sorun.** Docker Desktop yeniden başlayınca veritabanı konteyneri kapalı kalıyordu (restart politikası `no`). Veritabanı gerektiren her istek (giriş dahil) dakikalarca asılı kalıyor, mobil uygulama ve panel 15 sn'de "Sunucu zamanında yanıt vermedi" diyordu; kullanıcı hem telefonda hem web önizlemesinde aynı hatayı gördü. **Ölçüm** (aynı yöntemle yeniden üretildi): Windows'ta kapalı porta TCP bağlantısı 2 sn'de reddediliyor, ama `psycopg` varsayılan olarak bunu yaklaşık **130 sn** yeniden deniyor ("connection timeout expired"); `/health/ready` ve `/auth/login` 40 sn'den uzun asılı kaldı. Worker ise veritabanı hatasını hiç yakalamıyordu (kesintide çöker veya asılırdı).
+
+**Karar.**
+- `TALEPAKIS_DATABASE_CONNECT_TIMEOUT_S` (varsayılan 5, 1–60) `connect_args` ile motora verilir (`make_engine`); veritabanı yokken bağlantı en çok bu kadar bekler.
+- `OperationalError` ve havuz zaman aşımı **503** olarak döner: `{"detail": <sabit Türkçe mesaj>, "code": "database_unavailable"}` ve `Retry-After: 5`. Sürücü hata metni (parola veya adres içerebilir) yanıta konmaz, yalnızca hata türü günlüğe yazılır. `/health/ready` kendi 503 gövdesini korur; diğer hatalar 503'e çevrilmez.
+- Mobil ve panel, bu kodu **istemcide sabit** bir metinle gösterir ("Sunucu şu anda veritabanına ulaşamıyor…"); sunucudan gelen metin 5xx'te gösterilmeye devam etmez (D18 sözleşmesi iki istemcide birlikte güncellendi).
+- Worker (`run_forever`) kesintide çökmez ve asılmaz: üstel beklemeyle (en çok 30 sn) yeniden dener, iş hakkı harcanmaz, veritabanı dönünce kaldığı yerden sürer; kod hataları gizlenmez. `--once` net bir mesajla 1 döner.
+- `docker-compose.yml`: `restart: unless-stopped`; `docker compose down` konteyneri yine durdurur, veri `pgdata` biriminde kalır.
+
+**Sınırlar.** 503, bağlantı üst süresi kadar (5 sn) gecikmeyle gelir. Bir istek sırasında kopan bağlantı yine hata verir. Üretim için havuz boyutu ve geri çekilme ayarları ayrı konu. Bu düzeltme veritabanı kapalıyken telefon/web girişinin neden zaman aşımına uğradığını açıklar; telefonun API'ye ağ üzerinden ulaşabildiği ayrıca doğrulanmalıdır.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

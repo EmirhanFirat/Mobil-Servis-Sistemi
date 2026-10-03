@@ -4,6 +4,10 @@
 services:
   db:
     image: postgres:17
+    # Docker Desktop yeniden başlayınca (bilgisayar açılışı, güncelleme) veritabanı kendiliğinden
+    # kalkar; yoksa API girişte veritabanını bekleyip "sunucu zamanında yanıt vermedi" hatası verir.
+    # `docker compose down` konteyneri yine durdurur. Veri `pgdata` biriminde kalır.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: talepakis
       POSTGRES_PASSWORD: talepakis

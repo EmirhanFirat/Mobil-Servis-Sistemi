@@ -63,6 +63,12 @@ export function messageFromBody(
 ): { code: string | null; message: string } {
   // 5xx: sunucu iç hata metni (istisna izi vb.) kullanıcıya gösterilmez.
   if (status >= 500) {
+    // Tek istisna: sunucunun bilinen, güvenli "veritabanına ulaşılamıyor" yanıtı. Metin sunucudan
+    // alınmaz, istemcide sabittir; böylece kullanıcı "zaman aşımı" yerine gerçek durumu görür.
+    const code = body && typeof body === 'object' ? (body as { code?: unknown }).code : null;
+    if (status === 503 && code === 'database_unavailable') {
+      return { code, message: 'Sunucu şu anda veritabanına ulaşamıyor. Biraz sonra tekrar dene.' };
+    }
     return { code: null, message: 'Sunucuda bir sorun oluştu. Biraz sonra tekrar dene.' };
   }
   if (body && typeof body === 'object') {
