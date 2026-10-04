@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import admin, auth, health, meta, tickets
+from app.routers import admin, auth, experiments, health, meta, tickets
 
 
 def create_app() -> FastAPI:
@@ -18,7 +18,14 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
     register_error_handlers(app)
-    for router in (health.router, meta.router, auth.router, tickets.router, admin.router):
+    for router in (
+        health.router,
+        meta.router,
+        auth.router,
+        tickets.router,
+        admin.router,
+        experiments.router,
+    ):
         app.include_router(router)
     return app
 

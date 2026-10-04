@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "aciklama": "Bağımsız ikinci değerlendirme bekleyen etiket belirsizlikleri. Model karşılaştırma sayfası bunları 'tartışmalı etiket' olarak işaretler; etiketleri veya geçmiş sonuçları DEĞİŞTİRMEZ. İnsan okunur kayıt: evaluation/ETIKET_BELIRSIZLIKLERI.md",
+  "datasets": {
+    "v1": {
+      "s023": {
+        "status": "gözden geçirme bekliyor",
+        "note": "Asansör kapısı kapanmıyor/açılmıyor örneği: etiketleme rehberi 'mahsur kalma' riskini yüksek önceliğe, asansörü ise yalnızca 'diğer' kategorisine koyuyor; aynı grubun diğer iki yazımından farklı bir olgu anlatıyor. v1 etiketi (normal) değiştirilmedi."
+      }
+    }
+  }
+}

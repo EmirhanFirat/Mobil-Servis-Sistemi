@@ -3,6 +3,8 @@
 Bu dosya, veri seti etiketlerinde **bağımsız ikinci değerlendirme bekleyen** belirsizlikleri kaydeder. Burada kayıtlı bir
 kalem, etiketin yanlış olduğunun kanıtı değildir; yalnızca "tek kişinin kararı yeterince güvenilir görünmüyor" demektir.
 
+> **Makine okunur kopya:** bu kayıttaki kalemler `evaluation/etiket_belirsizlikleri.json` dosyasında da tutulur; yönetici panelindeki "Model karşılaştırma" sayfası örnekleri buradan "tartışmalı etiket" diye işaretler (yalnızca okur, etiketleri ve sonuçları değiştirmez). Yeni bir kalem eklerken iki dosyayı birlikte güncelle. JSON dosyası BOM'suz UTF-8 olmalı.
+
 ## Kurallar
 
 - **Mevcut sürümün (v1) etiketleri ve bunlarla alınmış geçmiş deney sonuçları geriye dönük değiştirilmez.**

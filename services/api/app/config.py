@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
@@ -23,6 +24,10 @@ class Settings(BaseSettings):
     # sn sürer: veritabanı kapalıyken her istek dakikalarca asılı kalır ve istemci "sunucu zamanında
     # yanıt vermedi" der. Kısa tutulur ki istek açık bir 503 (database_unavailable) ile bitsin.
     database_connect_timeout_s: int = Field(default=5, ge=1, le=60)
+
+    # Model karşılaştırma sayfasının okuduğu deney klasörü (yalnızca okunur). Boşsa depo kökündeki
+    # evaluation/runs kullanılır. Deney dosyaları Git'e girmez; yerelde çalıştırmayla oluşur.
+    experiments_dir: Path | None = None
 
     # Oturum belirteçlerini imzalar. Mobil uygulamaya veya depoya asla konmaz.
     secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)
