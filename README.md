@@ -110,6 +110,17 @@ npm run dev                 # http://localhost:5173
 
 Demo hesabı `yonetici` ile giriş yap (yönetici olmayan hesaplar panele giremez). Panel: **Talepler** (Yönlendirme bekleyen / Ekipte / Çözüldü / Kapatıldı / Tümü, sayfalı), **talep ayrıntısı** (geçmiş, durum işlemleri, ekip ve görevli ataması, öncelik/kategori/eksik bilgi düzeltme; ekip, kategorinin varsayılan ekibinden önerilir), **Kullanıcılar** (oluştur, rol değiştir, pasife al) ve **Ekipler** (görevli ekle/çıkar).
 
+### Model karşılaştırma sayfası
+
+Üstteki menüden **Model karşılaştırma** (`http://localhost:5173/model-karsilastirma`; yalnızca yönetici). Sayfa `evaluation/runs/` altındaki **kayıtlı deneyleri salt okunur** gösterir; açmak, yenilemek, süzmek veya dışa aktarmak **hiçbir model çağrısı başlatmaz** ve bütçe defterine dokunmaz. Deney yoksa veya dosyaları eksikse açık bir boş durum görünür, rakam uydurulmaz.
+
+- **Karşılaştırma:** aynı deneyde Jev, LLM ve hibrit yan yana (doğruluk, macro-F1, kaçırılan yüksek öncelik, inceleme/otomasyon, p50/p95 süre, ücret ve token, çağrı/retry/hata, hibritin LLM'e geçiş oranı ve tetikleyen sorular). Ölçülen toplamlar ile "1.000 talebe ölçeklenen **TAHMİN**" ayrı satırlardadır; bilinmeyen değer 0 yazılmaz.
+- **Örnek bazında inceleme:** tam metin, beklenen etiket, üç stratejinin tahmini yan yana, süre/ücret/token, hibritin LLM'e gönderdiği sorular; tartışmalı etiketli örnekler (ör. s023) işaretlenir, etiketler değişmez.
+- **Paylaşım görünümü:** ekran görüntüsüne uygun Türkçe özet kartı (üç modelin temel ölçümleri, ayrı ücret ve süre grafikleri, bir örnek talep, veri kaynağı/örnek sayısı/tarih/sürüm altbilgisi). **PNG indir** kartın kendisini indirir; **CSV indir** ve **Markdown tablo indir** aynı veriden üretilir (CSV: Excel için BOM'lu, ondalık nokta, bilinmeyen değer boş hücre).
+- Mevcut ilk deney **5 sentetik geliştirme örneği — bağlantı denemesi**dir ve eski **hibrit v1** yönlendirmesiyle alınmıştır; doğruluk/maliyet sonucu çıkarılamaz. Farklı veri/kapsam/eşik/sürümle alınmış deneyler kendiliğinden karşılaştırılmaz; v1/v2 öncesi-sonrası karşılaştırması aynı örneklerde ayrı bir değerlendirme olarak yapılmalıdır.
+
+Deney klasörü varsayılan olarak `evaluation/runs`'tır; farklı bir yer için API'de `TALEPAKIS_EXPERIMENTS_DIR` verilir. İstemci dosya yolu veremez, yalnızca `run_id`/`sample_id` ile okunur.
+
 API adresi `VITE_API_URL` ile verilir (varsayılan `http://127.0.0.1:8000`; derleme zamanında pakete gömülür, gizli bilgi koyma). Tarayıcıdan erişebilmesi için panelin adresi API'nin CORS izin listesinde olmalıdır (`TALEPAKIS_CORS_ORIGINS`; geliştirme varsayılanı 5173 ve 8081 portlarını içerir). Oturum token'ı `sessionStorage`'da tutulur: sekme kapanınca silinir.
 
 ## Testler ve lint

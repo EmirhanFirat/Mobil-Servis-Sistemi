@@ -84,6 +84,10 @@ Bütçe yetmezse çalıştırma durur, o ana dek olan sonuçlar kaydedilir ve **
 - `run.json` (yeniden üretilebilirlik): kaynak commit SHA ve çalışma ağacının kirli olup olmadığı, veri seti sürümü ve sha256, strateji/model/istem sürümleri ve eşikler, fiyat tablosu (kaynak ve kontrol tarihi), yeniden deneme ve eşzamanlılık ayarları, zaman damgası.
 - `report.md`, `metrics.json`: rapor ve makine okunur metrikler.
 
+## Yönetici panelinde görüntüleme
+
+Kayıtlı çalıştırmalar yönetici panelindeki **Model karşılaştırma** sayfasında (`/model-karsilastirma`) salt okunur gösterilir; API yalnızca `evaluation/runs/<kimlik>/` altındaki `run.json` ve `predictions.jsonl` dosyalarını okur, sayıları `report.py` ile aynı metrik kodundan üretir (panel ile `metrics.json` aynı değerleri verir), bütçe defterine dokunmaz ve çalıştırma kaydındaki `ledger` yolunu yanıta koymaz. Etiket belirsizlikleri `evaluation/etiket_belirsizlikleri.json` dosyasından okunur (BOM'suz UTF-8; `ETIKET_BELIRSIZLIKLERI.md` ile birlikte güncellenir). Sayfa model çağrısı başlatmaz; yeni deney yine yalnızca bu çalıştırıcıyla ve bütçe onayıyla yapılır.
+
 ## Metrikler
 
 Kategori doğruluğu ve macro-F1, kategori karışıklık matrisi, yüksek öncelik recall ve kaçırılan örnekler, inceleme (çekimserlik) oranı, **otomatik kararların doğruluğu** (incelemeye bırakılanlar başarı sayılmaz), inceleme kesinliği/duyarlılığı, eksik bilgi (konum/açıklama) F1, p50/p95 gecikme, hata oranı, toplam/karar başına/doğru otomatik karar başına USD, token ve çağrı sayıları. Oranlar için %95 Wilson güven aralığı verilir. Bilinmeyen maliyet sıfır sayılmaz.

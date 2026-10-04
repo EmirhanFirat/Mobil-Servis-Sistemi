@@ -1,3 +1,4 @@
+import type { ExperimentDetail, ExperimentList, ExperimentSample } from './experiment-types'
 import type {
   AssignBody,
   ListParams,
@@ -173,6 +174,13 @@ export function createApiClient(options: ClientOptions) {
       request<TicketDetail>('POST', `/tickets/${id(ticketId)}/assignment`, { body }),
     patchTicket: (ticketId: string, body: TicketPatchBody) =>
       request<TicketDetail>('PATCH', `/tickets/${id(ticketId)}`, { body }),
+
+    // Model karşılaştırma: yalnızca GET; kayıtlı deneyleri okur, hiçbir model çağrısı başlatmaz.
+    listExperiments: () => request<ExperimentList>('GET', '/admin/experiments'),
+    getExperiment: (runId: string) =>
+      request<ExperimentDetail>('GET', `/admin/experiments/${id(runId)}`),
+    getExperimentSample: (runId: string, sampleId: string) =>
+      request<ExperimentSample>('GET', `/admin/experiments/${id(runId)}/samples/${id(sampleId)}`),
 
     listUsers: () => request<User[]>('GET', '/admin/users'),
     createUser: (body: NewUser) => request<User>('POST', '/admin/users', { body }),

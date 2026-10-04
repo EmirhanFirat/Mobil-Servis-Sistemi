@@ -15,6 +15,7 @@ export default function Layout() {
           </NavLink>
           <NavLink to="/kullanicilar">Kullanıcılar</NavLink>
           <NavLink to="/ekipler">Ekipler</NavLink>
+          <NavLink to="/model-karsilastirma">Model karşılaştırma</NavLink>
         </nav>
         <div className="spacer" />
         <span className="muted">{user.display_name}</span>

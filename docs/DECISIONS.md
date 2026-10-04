@@ -185,6 +185,19 @@ Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; ye
 
 **Sınırlar.** 503, bağlantı üst süresi kadar (5 sn) gecikmeyle gelir. Bir istek sırasında kopan bağlantı yine hata verir. Üretim için havuz boyutu ve geri çekilme ayarları ayrı konu. Bu düzeltme veritabanı kapalıyken telefon/web girişinin neden zaman aşımına uğradığını açıklar; telefonun API'ye ağ üzerinden ulaşabildiği ayrıca doğrulanmalıdır.
 
+## D33 — Yönetici panelinde "Model karşılaştırma": salt okunur, beyaz listeli uçlar; deneyler kendiliğinden karşılaştırılmaz (2026-10-04)
+
+**Sorun.** Jev, LLM ve hibrit karşılaştırmasının gerçek ölçümlerle (ekran görüntüsü, örnek çıktı, tablo) paylaşılabilmesi için kayıtlı deneylerin panelde gösterilmesi gerekiyordu; ama deney dosyaları anahtar adı, bütçe defteri yolu gibi alanlar içerir, farklı deneyler farklı veri/eşik/yönlendirme sürümleriyle alınmıştır ve tek yanlış birleştirme, v1'i v2 gibi veya tahmini ölçüm gibi sunabilir.
+
+**Karar.**
+- `GET /admin/experiments`, `/{run_id}`, `/{run_id}/samples/{sample_id}`: yalnızca yönetici (gerçek `require_admin`), yalnızca okuma. İstemciden dosya yolu alınmaz; `run_id` ve `sample_id` biçim denetiminden geçer, çözülen yol deney kökünün **doğrudan** çocuğu olmalıdır (bağlantı/junction reddedilir). Yanıt beyaz listeyle kurulur (bütçe defterinin yerel yolu ve diğer alanlar hiçbir koşulda çıkmaz) ve Pydantic `response_model` ikinci kapıdır. Defter ve model çağrısına hiç dokunulmaz; panelin açılması, yenilenmesi, süzülmesi ve dışa aktarılması ücretli çağrı başlatamaz.
+- Sayılar `compute_metrics` ile `report.py`'nin kullandığı koddan gelir (panel ile `metrics.json` aynı); strateji karşılaştırması **yalnızca tüm stratejilerin ortak tamamladığı örneklerde** yapılır, dışarıda kalan çağrıların harcaması toplamdan gizlenmez ("Harcama dökümü"). Bilinmeyen ücret/metrik 0 yazılmaz; ölçülen toplamla "1.000 talebe ölçeklenen TAHMİN" ayrı satırlardadır; token ve ücret ayrıdır (tokenizer'lar eşdeğer değildir; ücretsiz çıktı token'ı sıfır token gibi gösterilmez).
+- Deney sürümü açık etiketlenir: `run.json`'da `routing_version` yoksa **"Hibrit v1 — kayıtta sürüm yok, eski yönlendirme"**; v2'nin daha iyi olduğuna dair kanıt iddia edilmez. Farklı veri/kapsam/eşik/sürüm deneyleri **otomatik karşılaştırılmaz**; v1/v2 öncesi-sonrası karşılaştırması aynı örneklerde, koşulları açık ayrı bir değerlendirme olmalıdır.
+- Küçük (<30) gerçek deney "bağlantı denemesi", sahte sağlayıcı deneyi "MOCK" olarak etiketlenir. Tartışmalı etiketler (`evaluation/etiket_belirsizlikleri.json`: s023) işaretlenir; etiketler ve geçmiş sonuçlar değişmez. Dosya yoksa/bozuksa açık boş durum veya uyarı (`uncertainty_unreadable`) görünür.
+- Paylaşım kartı tek SVG'dir (ekranda kart, PNG'nin kaynağı aynı; SVG → canvas, yeni bağımlılık yok); ücret ve süre ayrı grafiklerdedir; "1.000 talebe tahmin" satırı karta girmez. CSV ve Markdown aynı veriden üretilir.
+
+**Sınırlar.** Dosya tabanlıdır (çok sayıda deneyde yavaşlayabilir; ihtiyaç olursa önbellek). Karşılaştırma tek deney içindir. Tartışmalı etiket kaydı elle tutulur. PNG dışa aktarımı tarayıcıda canvas'a bağlıdır (başsız Edge'de denendi).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.
