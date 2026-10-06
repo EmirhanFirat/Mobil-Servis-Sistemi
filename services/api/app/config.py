@@ -1,14 +1,28 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from app.domain.decision_jobs import DECISION_OFF, FREE_STRATEGY_NAMES
 
 # Yalnızca yerel geliştirme içindir. Üretimde farklı ve güçlü bir değer zorunludur.
 DEV_SECRET_KEY = "dev-only-insecure-secret-key-change-me-0123456789"
+# docker-compose.yml'deki geliştirme veritabanının parolası; üretimde kullanılamaz.
+DEV_DATABASE_PASSWORD = "talepakis"
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _database_host(database_url: str) -> str | None:
+    """Veritabanı adresindeki ana makine adı (ayrıştırılamazsa/unix soketinde None)."""
+    try:
+        return make_url(database_url).host
+    except ArgumentError:
+        return None
 
 
 class Settings(BaseSettings):
@@ -32,6 +46,16 @@ class Settings(BaseSettings):
     # Oturum belirteçlerini imzalar. Mobil uygulamaya veya depoya asla konmaz.
     secret_key: SecretStr = SecretStr(DEV_SECRET_KEY)
     access_token_minutes: int = 480
+
+    # Giriş denemesi sınırı (süreç belleğinde; bkz. app/hardening.py). Başarısız denemeler sayılır:
+    # aynı IP + aynı hesap, aynı hesap (tüm IP'ler) ve aynı IP (tüm hesaplar) için ayrı sınırlar.
+    login_pair_limit: int = Field(default=5, ge=1, le=1000)
+    login_account_limit: int = Field(default=20, ge=1, le=10000)
+    login_ip_limit: int = Field(default=40, ge=1, le=10000)
+    login_window_seconds: int = Field(default=900, ge=1, le=86400)
+
+    # İstek gövdesi üst sınırı (bayt). En büyük meşru istek ~4 KB'lık talep metnidir.
+    max_request_body_bytes: int = Field(default=65536, ge=1024, le=10_000_000)
 
     # Ücretli model çağrıları VARSAYILAN OLARAK KAPALIDIR. Açmadan gerçek Jev/LLM çağrısı yapılamaz
     # (bkz. app/decision/factory.py). Anahtarlar yalnızca burada, ortam değişkeninden okunur;
@@ -84,6 +108,43 @@ class Settings(BaseSettings):
                     "Üretimde TALEPAKIS_SECRET_KEY için en az 32 karakterlik, "
                     "geliştirme varsayılanından farklı bir değer gerekir."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _dev_anahtari_yalniz_yerel_veritabaniyla(self) -> "Settings":
+        """TALEPAKIS_ENVIRONMENT unutulursa varsayılan 'development' kalır; o zaman herkesçe bilinen
+        anahtarla imzalanan belirteçler sahte yönetici girişine izin verir. Uzak (yerel olmayan) bir
+        veritabanına bağlanan süreç bu anahtarla BAŞLAMAZ."""
+        if self.secret_key.get_secret_value() == DEV_SECRET_KEY:
+            host = _database_host(self.database_url)
+            if host is not None and host not in LOOPBACK_HOSTS:
+                raise ValueError(
+                    "Geliştirme gizli anahtarı yalnızca yerel veritabanıyla kullanılabilir. "
+                    "Uzak veritabanı için TALEPAKIS_SECRET_KEY tanımla (ve üretimde "
+                    "TALEPAKIS_ENVIRONMENT=production ver)."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _uretimde_guvenli_kaynaklar_ve_veritabani(self) -> "Settings":
+        if self.environment != "production":
+            return self
+        for origin in self.cors_origins:
+            parts = urlsplit(origin)
+            if parts.scheme != "https" or not parts.hostname or parts.hostname in LOOPBACK_HOSTS:
+                raise ValueError(
+                    "Üretimde TALEPAKIS_CORS_ORIGINS yalnızca https:// adreslerini içermeli "
+                    f"(yerel adres ve '*' olamaz); geçersiz: {origin!r}."
+                )
+        try:
+            password = make_url(self.database_url).password
+        except ArgumentError as exc:
+            raise ValueError("TALEPAKIS_DATABASE_URL ayrıştırılamadı.") from exc
+        if not password or password == DEV_DATABASE_PASSWORD:
+            raise ValueError(
+                "Üretimde TALEPAKIS_DATABASE_URL geliştirme veritabanı parolasını (veya boş "
+                "parolayı) kullanamaz."
+            )
         return self
 
 

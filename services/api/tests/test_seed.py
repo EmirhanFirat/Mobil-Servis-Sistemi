@@ -48,6 +48,10 @@ def test_demo_kullanicilari_giris_yapabilir_ve_rolleri_dogru(api, db):
 def test_uretim_ortaminda_demo_verisi_yuklenmez(monkeypatch):
     monkeypatch.setenv("TALEPAKIS_ENVIRONMENT", "production")
     monkeypatch.setenv("TALEPAKIS_SECRET_KEY", "k" * 40)
+    monkeypatch.setenv("TALEPAKIS_CORS_ORIGINS", '["https://panel.ornek.com"]')
+    monkeypatch.setenv(
+        "TALEPAKIS_DATABASE_URL", "postgresql+psycopg://uygulama:guclu-parola-9@db.ornek.com:5432/x"
+    )
     get_settings.cache_clear()
     try:
         with pytest.raises(SystemExit, match="üretim"):

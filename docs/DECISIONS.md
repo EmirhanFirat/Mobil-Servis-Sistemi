@@ -198,6 +198,19 @@ Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; ye
 
 **Sınırlar.** Dosya tabanlıdır (çok sayıda deneyde yavaşlayabilir; ihtiyaç olursa önbellek). Karşılaştırma tek deney içindir. Tartışmalı etiket kaydı elle tutulur. PNG dışa aktarımı tarayıcıda canvas'a bağlıdır (başsız Edge'de denendi).
 
+## D34 — Üretim sertleştirmesi: giriş sınırı, belirteç–parola bağı, sıkı başlangıç doğrulamaları, yönetim aracı (2026-10-06)
+
+**Sorun.** Canlıya almadan önceki güvenlik denetimi (`docs/GUVENLIK.md`) şunları buldu: girişte hız sınırı yok; üretimde `seed` kapalı olduğundan ilk yönetici oluşturulamıyor; `TALEPAKIS_ENVIRONMENT` unutulursa herkesçe bilinen geliştirme anahtarıyla başlanıyor (sahte yönetici belirteci); parola değişse de eski belirteçler geçerli; güvenlik başlıkları, belge uçlarının kapatılması ve gövde sınırı yok.
+
+**Karar.**
+- **Giriş sınırlayıcı** (`app/hardening.py`): başarısız girişler (IP+hesap) 5, (hesap) 20, (IP) 40 denemede 15 dk engellenir. Süreç belleğinde, bağımlılıksız: küçük proje tek API süreciyle başlar, Redis/ek tablo gereksiz servis olurdu. Tek IP yöneticiyi dışarıdan kilitleyemesin diye çift sınırı en sıkı, hesap sınırı daha gevşek. Engelliyken doğru parola da reddedilir ve Argon2 çalışmaz; hesabın varlığı ele verilmez. Sınırlar: çok süreçte sınır süreç sayısıyla çarpılır; ters vekilin ardında uvicorn `--proxy-headers` ile çalışmalı (yoksa tüm istekler tek IP görünür).
+- **Belirteç parola sürümüne bağlı** (`pv` = parola özetinin SHA-256 parmak izinin ilk 16 hanesi): parola değişince eski belirteçler 401 olur; migration gerekmez. Sürümsüz eski biçimli belirteçler reddedilir (dağıtımda geliştirme oturumları düşer). Parola özeti belirteçte taşınmaz.
+- **Başlangıç doğrulamaları** (`config.py`): üretimde yalnızca `https://` ve yerel olmayan CORS adresleri, geliştirme/boş veritabanı parolası reddedilir; geliştirme anahtarı **yalnızca yerel veritabanıyla** kullanılabilir (uzak veritabanı + varsayılan anahtar = uygulama açılmaz).
+- **Yönetim aracı** (`python -m app.manage create-admin|reset-password`): HTTP ucu olarak açılmadı (saldırı yüzeyi), yalnızca veritabanına erişimi olan operatör kullanır; parola argüman olarak verilmez (etkileşimli/`--password-stdin`), en az 12 karakter, hiçbir yere yazdırılmaz.
+- **Başlıklar ve sınırlar:** `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, API için katı CSP, üretimde HSTS; üretimde `/docs`, `/redoc`, `/openapi.json` kapalı; istek gövdesi varsayılan 64 KiB (413). Panelin CSP'si statik barındırıcıda verilir (`GUVENLIK.md`).
+
+**Yapılmayanlar ve nedenleri.** Kullanıcının kendi parolasını değiştirmesi (yeni ürün özelliği, mobil+panel ekranı; karar kullanıcıda), belirteç yenileme/sunucu tarafı iptal, ikinci faktör, dağıtık sınırlayıcı. Bunlar `GUVENLIK.md` "Bilinen kalan riskler"de.
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

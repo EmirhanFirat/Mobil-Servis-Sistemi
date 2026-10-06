@@ -53,6 +53,7 @@ def test_ayarlar_onekli_ortam_degiskenlerinden_okunur(monkeypatch: pytest.Monkey
     monkeypatch.setenv("TALEPAKIS_ENVIRONMENT", "production")
     monkeypatch.setenv("TALEPAKIS_DATABASE_URL", "postgresql+psycopg://u:p@db:5432/x")
     monkeypatch.setenv("TALEPAKIS_SECRET_KEY", STRONG_KEY)
+    monkeypatch.setenv("TALEPAKIS_CORS_ORIGINS", '["https://panel.ornek.com"]')
 
     settings = Settings(_env_file=None)
 

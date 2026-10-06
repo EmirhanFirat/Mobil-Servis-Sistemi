@@ -1,3 +1,4 @@
+import hmac
 from typing import Annotated
 
 from fastapi import Depends
@@ -10,7 +11,7 @@ from app.db import get_db
 from app.domain.vocabulary import Role
 from app.errors import forbidden, unauthorized
 from app.models import User
-from app.security import decode_access_token
+from app.security import decode_access_token, password_version
 
 DbSession = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -25,15 +26,19 @@ def get_current_user(
 ) -> User:
     if credentials is None:
         raise unauthorized()
-    user_id = decode_access_token(credentials.credentials, settings)
-    if user_id is None:
+    claims = decode_access_token(credentials.credentials, settings)
+    if claims is None:
         raise unauthorized("Oturumun geçersiz veya süresi dolmuş. Yeniden giriş yap.")
+    user_id, version = claims
     # Rol ve aktiflik her istekte veritabanından okunur; belirteçteki bilgiye güvenilmez.
     user = db.scalar(
         select(User).options(selectinload(User.teams)).where(User.id == user_id, User.is_active)
     )
     if user is None:
         raise unauthorized("Hesap bulunamadı veya devre dışı.")
+    # Parola değiştirildiyse (sıfırlandıysa) önceki belirteçler artık geçerli değildir.
+    if not hmac.compare_digest(version, password_version(user.password_hash)):
+        raise unauthorized("Oturumun geçersiz veya süresi dolmuş. Yeniden giriş yap.")
     return user
 
 

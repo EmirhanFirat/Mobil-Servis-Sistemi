@@ -123,6 +123,18 @@ Deney klasörü varsayılan olarak `evaluation/runs`'tır; farklı bir yer için
 
 API adresi `VITE_API_URL` ile verilir (varsayılan `http://127.0.0.1:8000`; derleme zamanında pakete gömülür, gizli bilgi koyma). Tarayıcıdan erişebilmesi için panelin adresi API'nin CORS izin listesinde olmalıdır (`TALEPAKIS_CORS_ORIGINS`; geliştirme varsayılanı 5173 ve 8081 portlarını içerir). Oturum token'ı `sessionStorage`'da tutulur: sekme kapanınca silinir.
 
+## Canlıya alma (üretim)
+
+Üretim ön koşulları, yapılan güvenlik denetimi ve kalan riskler [docs/GUVENLIK.md](docs/GUVENLIK.md) içindedir. Kısaca: `TALEPAKIS_ENVIRONMENT=production`, güçlü `TALEPAKIS_SECRET_KEY`, güçlü parolalı `TALEPAKIS_DATABASE_URL` ve yalnızca `https://` panel adresi içeren `TALEPAKIS_CORS_ORIGINS` verilmezse API **açılmaz** (bilerek). Üretimde demo verisi yüklenmez; ilk yönetici sunucuda şöyle oluşturulur (parola komut satırına yazılmaz, istenir):
+
+```powershell
+cd services\api
+.\.venv\Scripts\python.exe -m app.manage create-admin --username ad.soyad --display-name "Ad Soyad"
+.\.venv\Scripts\python.exe -m app.manage reset-password --username ad.soyad
+```
+
+Kullanıcı adı tahmin edilmesi kolay olmamalı (`yonetici` yalnızca demo hesabıdır).
+
 ## Testler ve lint
 
 Mobil: `cd apps\mobile`, sonra `npm test` (Jest), `npm run typecheck`, `npx expo lint`.

@@ -1,5 +1,6 @@
 """Parola özeti ve oturum belirteci. Kriptografi güvenilir kütüphanelerde (argon2-cffi, PyJWT)."""
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -36,25 +37,37 @@ def burn_password_check(password: str) -> None:
     verify_password(_dummy_hash, password)
 
 
-def create_access_token(user_id: UUID, settings: Settings) -> str:
+def password_version(password_hash: str) -> str:
+    """Parola özetinden türetilen kısa parmak izi. Belirtece konur; parola değişince (özet
+    değişir) eski belirteçler geçersiz olur. Özetin kendisi belirteçte taşınmaz (geri
+    alınamaz, kısaltılmış)."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def create_access_token(user_id: UUID, settings: Settings, *, password_hash: str) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
+        "pv": password_version(password_hash),
         "iat": now,
         "exp": now + timedelta(minutes=settings.access_token_minutes),
     }
     return jwt.encode(payload, settings.secret_key.get_secret_value(), algorithm=JWT_ALGORITHM)
 
 
-def decode_access_token(token: str, settings: Settings) -> UUID | None:
-    """Geçerli belirteçteki kullanıcı kimliğini döndürür; geçersiz veya süresi dolmuşsa None."""
+def decode_access_token(token: str, settings: Settings) -> tuple[UUID, str] | None:
+    """Geçerli belirteçteki (kullanıcı kimliği, parola sürümü); geçersiz, süresi dolmuş veya
+    parola sürümü olmayan belirteçte None."""
     try:
         claims = jwt.decode(
             token,
             settings.secret_key.get_secret_value(),
             algorithms=[JWT_ALGORITHM],
-            options={"require": ["exp", "sub"]},
+            options={"require": ["exp", "sub", "pv"]},
         )
-        return UUID(claims["sub"])
+        version = claims["pv"]
+        if not isinstance(version, str):
+            return None
+        return UUID(claims["sub"]), version
     except (jwt.PyJWTError, ValueError):
         return None

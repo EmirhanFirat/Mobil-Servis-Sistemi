@@ -45,6 +45,17 @@ def unauthorized(message: str = "Oturum açman gerekiyor.") -> AppError:
     return AppError(401, "unauthorized", message, headers={"WWW-Authenticate": "Bearer"})
 
 
+def too_many_attempts(retry_after_s: int) -> AppError:
+    """Çok fazla hatalı giriş. Mesaj hesabın var olup olmadığını ele vermez."""
+    minutes = max(1, -(-retry_after_s // 60))
+    return AppError(
+        429,
+        "too_many_attempts",
+        f"Çok fazla hatalı giriş denemesi. Yaklaşık {minutes} dakika sonra tekrar dene.",
+        headers={"Retry-After": str(retry_after_s)},
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _handle_app_error(_: Request, exc: AppError) -> JSONResponse:

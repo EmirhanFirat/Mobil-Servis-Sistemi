@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, selectinload
 
-from app import security
+from app import hardening, security
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.domain.vocabulary import Role
@@ -35,6 +35,8 @@ def _izole_ortam(monkeypatch):
     """Geliştiricinin kendi TALEPAKIS_* değişkenleri testleri etkilemesin."""
     for ad in [ad for ad in os.environ if ad.startswith("TALEPAKIS_")]:
         monkeypatch.delenv(ad)
+    # Giriş sınırlayıcısı süreç belleğinde yaşar; testler birbirinin sayacını görmesin.
+    hardening._login_throttle.cache_clear()
 
 
 @pytest.fixture
@@ -184,7 +186,7 @@ def make_ticket(db: Session) -> Callable[..., Ticket]:
 @pytest.fixture
 def auth(settings: Settings) -> Callable[[User], dict[str, str]]:
     def _headers(user: User) -> dict[str, str]:
-        token = security.create_access_token(user.id, settings)
+        token = security.create_access_token(user.id, settings, password_hash=user.password_hash)
         return {"Authorization": f"Bearer {token}"}
 
     return _headers
