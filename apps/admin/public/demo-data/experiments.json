@@ -1,0 +1,3878 @@
+{
+ "details": {
+  "20261002T162249Z-v1-dev": {
+   "budget": {
+    "budget_id": "ilk-deneme",
+    "calls": 20,
+    "conservative_charges": 0,
+    "conservative_spent_usd": "0",
+    "known_spent_usd": "0.021376652",
+    "max_cost_usd": "0.10",
+    "prior_spent_usd": "0",
+    "prior_unresolved_reserved_usd": "0",
+    "remaining_usd": "0.078623348",
+    "total_spent_usd": "0.021376652"
+   },
+   "common": {
+    "excluded": [],
+    "n": 5,
+    "sample_ids": [
+     "s003",
+     "s009",
+     "s020",
+     "s023",
+     "s051"
+    ]
+   },
+   "conditions": {
+    "concurrency": 1,
+    "dataset_version": "v1",
+    "final": false,
+    "limit": 5,
+    "prices": [
+     {
+      "checked_on": "2026-10-02",
+      "input_usd_per_mtok": "0.042",
+      "model": "jev-1.13.0",
+      "output_usd_per_mtok": "0",
+      "provider": "jev",
+      "source_url": "https://docs.typesafe.ai/models"
+     },
+     {
+      "checked_on": "2026-10-02",
+      "input_usd_per_mtok": "1",
+      "model": "claude-haiku-4-5-20251001",
+      "output_usd_per_mtok": "5",
+      "provider": "anthropic",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+     },
+     {
+      "checked_on": "2026-10-02",
+      "input_usd_per_mtok": "0",
+      "model": "mock-jev-1",
+      "output_usd_per_mtok": "0",
+      "provider": "mock-jev",
+      "source_url": "yok (mock)"
+     },
+     {
+      "checked_on": "2026-10-02",
+      "input_usd_per_mtok": "0",
+      "model": "mock-llm-1",
+      "output_usd_per_mtok": "0",
+      "provider": "mock-llm",
+      "source_url": "yok (mock)"
+     }
+    ],
+    "python": "3.12.7",
+    "retry_max_attempts": 3,
+    "shuffle_seed": 4,
+    "splits": [
+     "dev"
+    ],
+    "strategies": [
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "jev_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "jev-1.13.0",
+      "name": "jev_only",
+      "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+      "provider": "jev",
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "llm_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "claude-haiku-4-5-20251001",
+      "name": "llm_only",
+      "prompt_version": "llm-istem-v1-e4fabd817c1e",
+      "provider": "anthropic",
+      "routing_version": null,
+      "temperature": 0.0,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": {
+       "model": "jev-1.13.0",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "temperature": null
+      },
+      "kind": "hybrid",
+      "llm": {
+       "model": "claude-haiku-4-5-20251001",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "temperature": 0.0
+      },
+      "llm_min_self_reported": null,
+      "model": null,
+      "name": "hybrid",
+      "prompt_version": null,
+      "provider": null,
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": {
+       "category": 0.6,
+       "missing_contact": 0.6,
+       "missing_detail": 0.6,
+       "missing_location": 0.6,
+       "missing_timing": 0.6,
+       "priority": 0.6
+      }
+     }
+    ]
+   },
+   "metrics_available": true,
+   "notes": {
+    "comparability": "Bu ekran yalnızca AYNI deneydeki stratejileri karşılaştırır. Farklı deneyler (veri, örnekler, soru kapsamı, eşik, model veya hibrit yönlendirme sürümü) otomatik olarak doğrudan kıyaslanmaz.",
+    "tokens": "Farklı sağlayıcıların tokenizer'ları eşdeğer değildir; token sayıları birebir karşılaştırılmamalıdır. Ücret ayrı bir ölçümdür ve sağlayıcının bildirdiği kullanımdan hesaplanır."
+   },
+   "reconciliation": {
+    "compared_known_usd": "0.021376652",
+    "conservative_spent_usd": "0",
+    "outside_comparison_usd": "0",
+    "run_known_spent_usd": "0.021376652"
+   },
+   "run": {
+    "created_at": "2026-10-02T16:22:49.891057+00:00",
+    "dataset": {
+     "label_status": "single_annotator_unreviewed",
+     "matches_current": true,
+     "n_completed": 5,
+     "n_samples": 5,
+     "sha256_short": "297a1dddf2347be2",
+     "source": "synthetic",
+     "splits": [
+      "dev"
+     ],
+     "version": "v1"
+    },
+    "files": {
+     "metrics": true,
+     "predictions": true,
+     "report": true
+    },
+    "git_dirty": false,
+    "hybrid_routing": {
+     "description": "Tüm sorulara aynı Jev güven eşiği; güvenilmeyen HER soru (iletişim ve zaman bilgisi dahil) LLM'e geçerdi.",
+     "recorded": false,
+     "version": "hibrit-yonlendirme-v1"
+    },
+    "id": "20261002T162249Z-v1-dev",
+    "live": true,
+    "scope_label": "5 sentetik geliştirme örneği — bağlantı denemesi",
+    "source_commit": "09584e99f1614df2ec202b61dd1d422dbf4ff71d",
+    "status": "complete",
+    "status_detail": null,
+    "strategies": [
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "jev_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "jev-1.13.0",
+      "name": "jev_only",
+      "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+      "provider": "jev",
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "llm_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "claude-haiku-4-5-20251001",
+      "name": "llm_only",
+      "prompt_version": "llm-istem-v1-e4fabd817c1e",
+      "provider": "anthropic",
+      "routing_version": null,
+      "temperature": 0.0,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": {
+       "model": "jev-1.13.0",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "temperature": null
+      },
+      "kind": "hybrid",
+      "llm": {
+       "model": "claude-haiku-4-5-20251001",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "temperature": 0.0
+      },
+      "llm_min_self_reported": null,
+      "model": null,
+      "name": "hybrid",
+      "prompt_version": null,
+      "provider": null,
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": {
+       "category": 0.6,
+       "missing_contact": 0.6,
+       "missing_detail": 0.6,
+       "missing_location": 0.6,
+       "missing_timing": 0.6,
+       "priority": 0.6
+      }
+     }
+    ]
+   },
+   "samples": [
+    {
+     "disputed": null,
+     "gold": {
+      "category": "plumbing",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "high"
+     },
+     "id": "s003",
+     "in_common": true,
+     "split": "dev",
+     "strategies": {
+      "hybrid": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.001291682",
+       "failed": false,
+       "latency_ms": 1030.89,
+       "priority": "high",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "jev_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.000038682",
+       "failed": false,
+       "latency_ms": 314.763,
+       "priority": "high",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "llm_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.002951",
+       "failed": false,
+       "latency_ms": 1541.26,
+       "priority": "high",
+       "priority_ok": true,
+       "review_required": false
+      }
+     },
+     "tags": [
+      "typo"
+     ],
+     "title": "lavabo akitiyor",
+     "variant": "yazim_hatali"
+    },
+    {
+     "disputed": null,
+     "gold": {
+      "category": "electrical",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s009",
+     "in_common": true,
+     "split": "dev",
+     "strategies": {
+      "hybrid": {
+       "calls_with_unknown_cost": 0,
+       "category": "electrical",
+       "category_ok": true,
+       "cost_known_usd": "0.001283514",
+       "failed": false,
+       "latency_ms": 1128.872,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "jev_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "electrical",
+       "category_ok": true,
+       "cost_known_usd": "0.000038514",
+       "failed": false,
+       "latency_ms": 293.664,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "llm_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "electrical",
+       "category_ok": true,
+       "cost_known_usd": "0.002933",
+       "failed": false,
+       "latency_ms": 1569.493,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      }
+     },
+     "tags": [
+      "typo"
+     ],
+     "title": "ampul yanmiyor",
+     "variant": "yazim_hatali"
+    },
+    {
+     "disputed": null,
+     "gold": {
+      "category": "cleaning",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s020",
+     "in_common": true,
+     "split": "dev",
+     "strategies": {
+      "hybrid": {
+       "calls_with_unknown_cost": 0,
+       "category": "cleaning",
+       "category_ok": true,
+       "cost_known_usd": "0.001329018",
+       "failed": false,
+       "latency_ms": 1122.632,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "jev_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "cleaning",
+       "category_ok": true,
+       "cost_known_usd": "0.000039018",
+       "failed": false,
+       "latency_ms": 259.739,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "llm_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "cleaning",
+       "category_ok": true,
+       "cost_known_usd": "0.002948",
+       "failed": false,
+       "latency_ms": 1538.968,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      }
+     },
+     "tags": [],
+     "title": "Duş alanı temizlenmemiş",
+     "variant": "kisa"
+    },
+    {
+     "disputed": {
+      "note": "Asansör kapısı kapanmıyor/açılmıyor örneği: etiketleme rehberi 'mahsur kalma' riskini yüksek önceliğe, asansörü ise yalnızca 'diğer' kategorisine koyuyor; aynı grubun diğer iki yazımından farklı bir olgu anlatıyor. v1 etiketi (normal) değiştirilmedi.",
+      "status": "gözden geçirme bekliyor"
+     },
+     "gold": {
+      "category": "other",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s023",
+     "in_common": true,
+     "split": "dev",
+     "strategies": {
+      "hybrid": {
+       "calls_with_unknown_cost": 0,
+       "category": "other",
+       "category_ok": true,
+       "cost_known_usd": "0.001287682",
+       "failed": false,
+       "latency_ms": 1150.563,
+       "priority": "high",
+       "priority_ok": false,
+       "review_required": false
+      },
+      "jev_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "other",
+       "category_ok": true,
+       "cost_known_usd": "0.000038682",
+       "failed": false,
+       "latency_ms": 480.826,
+       "priority": "high",
+       "priority_ok": false,
+       "review_required": false
+      },
+      "llm_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "other",
+       "category_ok": true,
+       "cost_known_usd": "0.002937",
+       "failed": false,
+       "latency_ms": 2435.609,
+       "priority": "high",
+       "priority_ok": false,
+       "review_required": false
+      }
+     },
+     "tags": [],
+     "title": "Asansör bozuk",
+     "variant": "kisa"
+    },
+    {
+     "disputed": null,
+     "gold": {
+      "category": "plumbing",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s051",
+     "in_common": true,
+     "split": "dev",
+     "strategies": {
+      "hybrid": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.00128143",
+       "failed": false,
+       "latency_ms": 1106.944,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "jev_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.00003843",
+       "failed": false,
+       "latency_ms": 410.187,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      },
+      "llm_only": {
+       "calls_with_unknown_cost": 0,
+       "category": "plumbing",
+       "category_ok": true,
+       "cost_known_usd": "0.002941",
+       "failed": false,
+       "latency_ms": 1588.445,
+       "priority": "normal",
+       "priority_ok": true,
+       "review_required": false
+      }
+     },
+     "tags": [
+      "typo"
+     ],
+     "title": "klozet su akitiyor",
+     "variant": "yazim_hatali"
+    }
+   ],
+   "strategies": [
+    {
+     "cost": {
+      "calls_with_unknown_cost": 0,
+      "estimate_per_1000_usd": "0.0386652",
+      "known_usd": "0.000193326",
+      "per_completed_usd": "0.0000386652",
+      "total_usd": "0.000193326"
+     },
+     "hybrid": null,
+     "info": {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "jev_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "jev-1.13.0",
+      "name": "jev_only",
+      "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+      "provider": "jev",
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": null
+     },
+     "metrics": {
+      "automated_category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "automated_priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "automated_rate": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_macro_f1": 1.0,
+      "high_priority_missed": [],
+      "high_priority_recall": {
+       "n": 1,
+       "successes": 1,
+       "value": 1.0,
+       "wilson95": [
+        0.20654329147389294,
+        1.0
+       ]
+      },
+      "latency_p50_ms": 314.763,
+      "latency_p95_ms": 466.6982,
+      "priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "review_rate": {
+       "n": 5,
+       "successes": 0,
+       "value": 0.0,
+       "wilson95": [
+        0.0,
+        0.43449149475208104
+       ]
+      }
+     },
+     "n": 5,
+     "n_failed": 0,
+     "name": "jev_only",
+     "usage": {
+      "call_errors": 0,
+      "calls": 5,
+      "calls_without_usage": 0,
+      "input_tokens": 4603,
+      "output_tokens": 902,
+      "providers": [
+       {
+        "call_errors": 0,
+        "calls": 5,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000193326",
+        "input_tokens": 4603,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 902,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ],
+      "retries": 0
+     }
+    },
+    {
+     "cost": {
+      "calls_with_unknown_cost": 0,
+      "estimate_per_1000_usd": "2.942",
+      "known_usd": "0.01471",
+      "per_completed_usd": "0.002942",
+      "total_usd": "0.01471"
+     },
+     "hybrid": null,
+     "info": {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "llm_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "claude-haiku-4-5-20251001",
+      "name": "llm_only",
+      "prompt_version": "llm-istem-v1-e4fabd817c1e",
+      "provider": "anthropic",
+      "routing_version": null,
+      "temperature": 0.0,
+      "thresholds": null
+     },
+     "metrics": {
+      "automated_category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "automated_priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "automated_rate": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_macro_f1": 1.0,
+      "high_priority_missed": [],
+      "high_priority_recall": {
+       "n": 1,
+       "successes": 1,
+       "value": 1.0,
+       "wilson95": [
+        0.20654329147389294,
+        1.0
+       ]
+      },
+      "latency_p50_ms": 1569.493,
+      "latency_p95_ms": 2266.1762,
+      "priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "review_rate": {
+       "n": 5,
+       "successes": 0,
+       "value": 0.0,
+       "wilson95": [
+        0.0,
+        0.43449149475208104
+       ]
+      }
+     },
+     "n": 5,
+     "n_failed": 0,
+     "name": "llm_only",
+     "usage": {
+      "call_errors": 0,
+      "calls": 5,
+      "calls_without_usage": 0,
+      "input_tokens": 9840,
+      "output_tokens": 974,
+      "providers": [
+       {
+        "call_errors": 0,
+        "calls": 5,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.01471",
+        "input_tokens": 9840,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 974,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ],
+      "retries": 0
+     }
+    },
+    {
+     "cost": {
+      "calls_with_unknown_cost": 0,
+      "estimate_per_1000_usd": "1.2946652",
+      "known_usd": "0.006473326",
+      "per_completed_usd": "0.0012946652",
+      "total_usd": "0.006473326"
+     },
+     "hybrid": {
+      "escalated": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "jev_stage_calls": 5,
+      "llm_stage_calls": 5,
+      "trigger_questions": {
+       "missing_contact": 5
+      }
+     },
+     "info": {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": {
+       "model": "jev-1.13.0",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "temperature": null
+      },
+      "kind": "hybrid",
+      "llm": {
+       "model": "claude-haiku-4-5-20251001",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "temperature": 0.0
+      },
+      "llm_min_self_reported": null,
+      "model": null,
+      "name": "hybrid",
+      "prompt_version": null,
+      "provider": null,
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": {
+       "category": 0.6,
+       "missing_contact": 0.6,
+       "missing_detail": 0.6,
+       "missing_location": 0.6,
+       "missing_timing": 0.6,
+       "priority": 0.6
+      }
+     },
+     "metrics": {
+      "automated_category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "automated_priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "automated_rate": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_accuracy": {
+       "n": 5,
+       "successes": 5,
+       "value": 1.0,
+       "wilson95": [
+        0.5655085052479191,
+        1.0
+       ]
+      },
+      "category_macro_f1": 1.0,
+      "high_priority_missed": [],
+      "high_priority_recall": {
+       "n": 1,
+       "successes": 1,
+       "value": 1.0,
+       "wilson95": [
+        0.20654329147389294,
+        1.0
+       ]
+      },
+      "latency_p50_ms": 1122.632,
+      "latency_p95_ms": 1146.2248000000002,
+      "priority_accuracy": {
+       "n": 5,
+       "successes": 4,
+       "value": 0.8,
+       "wilson95": [
+        0.3755282641185388,
+        0.9637768390302125
+       ]
+      },
+      "review_rate": {
+       "n": 5,
+       "successes": 0,
+       "value": 0.0,
+       "wilson95": [
+        0.0,
+        0.43449149475208104
+       ]
+      }
+     },
+     "n": 5,
+     "n_failed": 0,
+     "name": "hybrid",
+     "usage": {
+      "call_errors": 0,
+      "calls": 10,
+      "calls_without_usage": 0,
+      "input_tokens": 9703,
+      "output_tokens": 1138,
+      "providers": [
+       {
+        "call_errors": 0,
+        "calls": 5,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.00628",
+        "input_tokens": 5100,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 236,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 5,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000193326",
+        "input_tokens": 4603,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 902,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ],
+      "retries": 0
+     }
+    }
+   ],
+   "unavailable_reason": null,
+   "warnings": [
+    {
+     "code": "small_sample",
+     "text": "Küçük örneklem (5 örnek): bu deney bağlantıyı, biçimi ve çağrı kayıtlarını doğrular; doğruluk, güvenilirlik veya maliyet tasarrufu sonucu çıkarılamaz."
+    },
+    {
+     "code": "hybrid_v1",
+     "text": "Bu deney hibrit yönlendirme v1 ile alındı (kayıtta sürüm alanı yok): tüm sorular tek eşik, güvenilmeyen her soru LLM'e geçerdi. Güncel kod (v2) ile alınmış gibi okunmamalıdır; v2'nin daha iyi olduğuna dair henüz gerçek ölçüm yoktur."
+    },
+    {
+     "code": "disputed_labels",
+     "text": "Tartışmalı etiketli örnek: s023 (bağımsız ikinci değerlendirme bekliyor). Etiketler ve bu deneyin sonuçları değiştirilmedi."
+    }
+   ]
+  }
+ },
+ "list": {
+  "runs": [
+   {
+    "created_at": "2026-10-02T16:22:49.891057+00:00",
+    "dataset": {
+     "label_status": "single_annotator_unreviewed",
+     "matches_current": true,
+     "n_completed": 5,
+     "n_samples": 5,
+     "sha256_short": "297a1dddf2347be2",
+     "source": "synthetic",
+     "splits": [
+      "dev"
+     ],
+     "version": "v1"
+    },
+    "files": {
+     "metrics": true,
+     "predictions": true,
+     "report": true
+    },
+    "git_dirty": false,
+    "hybrid_routing": {
+     "description": "Tüm sorulara aynı Jev güven eşiği; güvenilmeyen HER soru (iletişim ve zaman bilgisi dahil) LLM'e geçerdi.",
+     "recorded": false,
+     "version": "hibrit-yonlendirme-v1"
+    },
+    "id": "20261002T162249Z-v1-dev",
+    "live": true,
+    "scope_label": "5 sentetik geliştirme örneği — bağlantı denemesi",
+    "source_commit": "09584e99f1614df2ec202b61dd1d422dbf4ff71d",
+    "status": "complete",
+    "status_detail": null,
+    "strategies": [
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "jev_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "jev-1.13.0",
+      "name": "jev_only",
+      "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+      "provider": "jev",
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": null,
+      "kind": "llm_only",
+      "llm": null,
+      "llm_min_self_reported": null,
+      "model": "claude-haiku-4-5-20251001",
+      "name": "llm_only",
+      "prompt_version": "llm-istem-v1-e4fabd817c1e",
+      "provider": "anthropic",
+      "routing_version": null,
+      "temperature": 0.0,
+      "thresholds": null
+     },
+     {
+      "escalate_on": null,
+      "is_mock": false,
+      "jev": {
+       "model": "jev-1.13.0",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "temperature": null
+      },
+      "kind": "hybrid",
+      "llm": {
+       "model": "claude-haiku-4-5-20251001",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "temperature": 0.0
+      },
+      "llm_min_self_reported": null,
+      "model": null,
+      "name": "hybrid",
+      "prompt_version": null,
+      "provider": null,
+      "routing_version": null,
+      "temperature": null,
+      "thresholds": {
+       "category": 0.6,
+       "missing_contact": 0.6,
+       "missing_detail": 0.6,
+       "missing_location": 0.6,
+       "missing_timing": 0.6,
+       "priority": 0.6
+      }
+     }
+    ]
+   }
+  ],
+  "runs_dir_found": true
+ },
+ "samples": {
+  "20261002T162249Z-v1-dev": {
+   "s003": {
+    "run_id": "20261002T162249Z-v1-dev",
+    "sample": {
+     "description": "lavabodan surekli su akiyor, yer su oldu yardim edin",
+     "disputed": null,
+     "gold": {
+      "category": "plumbing",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "high"
+     },
+     "id": "s003",
+     "label_status": "single_annotator_unreviewed",
+     "location": "C blok 1. kat tuvaletler",
+     "source": "synthetic",
+     "split": "dev",
+     "tags": [
+      "typo"
+     ],
+     "title": "lavabo akitiyor",
+     "variant": "yazim_hatali"
+    },
+    "strategies": [
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038682",
+        "duration_ms": 311,
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.000038682",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "jev_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "jev-1.13.0",
+       "name": "jev_only",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 1.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.99,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 1.0,
+         "low": 0.0,
+         "normal": 0.0,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.94,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.97,
+         "yes": 0.03
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.86,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.9299999999999999,
+         "yes": 0.07
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.18000000000000005,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.5900000000000001,
+         "yes": 0.41
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.6799999999999999,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.16000000000000003,
+         "yes": 0.84
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       }
+      ],
+      "latency_ms": 314.763,
+      "missing_info": [
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0"
+      ],
+      "name": "jev_only",
+      "present": true,
+      "priority": "high",
+      "priority_ok": true,
+      "providers": [
+       "jev"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038682",
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.002951",
+        "duration_ms": 1537,
+        "input_tokens": 1971,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 196,
+        "provider": "anthropic",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.002951",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "llm_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "claude-haiku-4-5-20251001",
+       "name": "llm_only",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "routing_version": null,
+       "temperature": 0.0,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 0.99,
+        "confidence_kind": "self_reported",
+        "n_options": 6,
+        "probabilities": null,
+        "question": "category",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 4,
+        "probabilities": null,
+        "question": "priority",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_location",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_detail",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_timing",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1541.26,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "llm_only",
+      "present": true,
+      "priority": "high",
+      "priority_ok": true,
+      "providers": [
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.002951",
+        "input_tokens": 1971,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 196,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038682",
+        "duration_ms": 271,
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       },
+       {
+        "attempt": 1,
+        "cost_usd": "0.001253",
+        "duration_ms": 753,
+        "input_tokens": 1023,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "provider": "anthropic",
+        "questions": [
+         "missing_contact"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.001291682",
+      "error": null,
+      "escalated_questions": [
+       "missing_contact"
+      ],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": {
+        "model": "jev-1.13.0",
+        "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+        "provider": "jev",
+        "temperature": null
+       },
+       "kind": "hybrid",
+       "llm": {
+        "model": "claude-haiku-4-5-20251001",
+        "prompt_version": "llm-istem-v1-e4fabd817c1e",
+        "provider": "anthropic",
+        "temperature": 0.0
+       },
+       "llm_min_self_reported": null,
+       "model": null,
+       "name": "hybrid",
+       "prompt_version": null,
+       "provider": null,
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": {
+        "category": 0.6,
+        "missing_contact": 0.6,
+        "missing_detail": 0.6,
+        "missing_location": 0.6,
+        "missing_timing": 0.6,
+        "priority": 0.6
+       }
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 1.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.99,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.99,
+         "low": 0.0,
+         "normal": 0.01,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.94,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.97,
+         "yes": 0.03
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.86,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.9299999999999999,
+         "yes": 0.07
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": false,
+        "answer": false,
+        "confidence": 0.21999999999999997,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.61,
+         "yes": 0.39
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.7,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.15000000000000002,
+         "yes": 0.85
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1030.89,
+      "missing_info": [
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0",
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "hybrid",
+      "present": true,
+      "priority": "high",
+      "priority_ok": true,
+      "providers": [
+       "jev",
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.001253",
+        "input_tokens": 1023,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038682",
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     }
+    ]
+   },
+   "s009": {
+    "run_id": "20261002T162249Z-v1-dev",
+    "sample": {
+     "description": "koridordaki ampul yanmiyor aksamlari karanlik oluyor",
+     "disputed": null,
+     "gold": {
+      "category": "electrical",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s009",
+     "label_status": "single_annotator_unreviewed",
+     "location": "A blok 3. kat",
+     "source": "synthetic",
+     "split": "dev",
+     "tags": [
+      "typo"
+     ],
+     "title": "ampul yanmiyor",
+     "variant": "yazim_hatali"
+    },
+    "strategies": [
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038514",
+        "duration_ms": 289,
+        "input_tokens": 917,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 180,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "electrical",
+      "category_ok": true,
+      "cost_known_usd": "0.000038514",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "jev_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "jev-1.13.0",
+       "name": "jev_only",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "electrical",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 1.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.73,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.12,
+         "low": 0.08,
+         "normal": 0.8,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.88,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.94,
+         "yes": 0.06
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.8,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.9,
+         "yes": 0.1
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.3400000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.32999999999999996,
+         "yes": 0.67
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.78,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.10999999999999999,
+         "yes": 0.89
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       }
+      ],
+      "latency_ms": 293.664,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0"
+      ],
+      "name": "jev_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038514",
+        "input_tokens": 917,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 180,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.002933",
+        "duration_ms": 1565,
+        "input_tokens": 1963,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "provider": "anthropic",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "electrical",
+      "category_ok": true,
+      "cost_known_usd": "0.002933",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "llm_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "claude-haiku-4-5-20251001",
+       "name": "llm_only",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "routing_version": null,
+       "temperature": 0.0,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "electrical",
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 6,
+        "probabilities": null,
+        "question": "category",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 4,
+        "probabilities": null,
+        "question": "priority",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_location",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_detail",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_timing",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1569.493,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "llm_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.002933",
+        "input_tokens": 1963,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038514",
+        "duration_ms": 326,
+        "input_tokens": 917,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 180,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       },
+       {
+        "attempt": 1,
+        "cost_usd": "0.001245",
+        "duration_ms": 795,
+        "input_tokens": 1015,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "provider": "anthropic",
+        "questions": [
+         "missing_contact"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "electrical",
+      "category_ok": true,
+      "cost_known_usd": "0.001283514",
+      "error": null,
+      "escalated_questions": [
+       "missing_contact"
+      ],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": {
+        "model": "jev-1.13.0",
+        "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+        "provider": "jev",
+        "temperature": null
+       },
+       "kind": "hybrid",
+       "llm": {
+        "model": "claude-haiku-4-5-20251001",
+        "prompt_version": "llm-istem-v1-e4fabd817c1e",
+        "provider": "anthropic",
+        "temperature": 0.0
+       },
+       "llm_min_self_reported": null,
+       "model": null,
+       "name": "hybrid",
+       "prompt_version": null,
+       "provider": null,
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": {
+        "category": 0.6,
+        "missing_contact": 0.6,
+        "missing_detail": 0.6,
+        "missing_location": 0.6,
+        "missing_timing": 0.6,
+        "priority": 0.6
+       }
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "electrical",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 1.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.74,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.11,
+         "low": 0.09,
+         "normal": 0.8,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.95,
+         "yes": 0.05
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.8,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.9,
+         "yes": 0.1
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": false,
+        "answer": true,
+        "confidence": 0.3600000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.31999999999999995,
+         "yes": 0.68
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.76,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.12,
+         "yes": 0.88
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1128.872,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0",
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "hybrid",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev",
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.001245",
+        "input_tokens": 1015,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038514",
+        "input_tokens": 917,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 180,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     }
+    ]
+   },
+   "s020": {
+    "run_id": "20261002T162249Z-v1-dev",
+    "sample": {
+     "description": "Duş kabinleri çok pis, temizlik yapılmasını rica ediyoruz.",
+     "disputed": null,
+     "gold": {
+      "category": "cleaning",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s020",
+     "label_status": "single_annotator_unreviewed",
+     "location": "A Blok zemin kat duşlar",
+     "source": "synthetic",
+     "split": "dev",
+     "tags": [],
+     "title": "Duş alanı temizlenmemiş",
+     "variant": "kisa"
+    },
+    "strategies": [
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000039018",
+        "duration_ms": 256,
+        "input_tokens": 929,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "cleaning",
+      "category_ok": true,
+      "cost_known_usd": "0.000039018",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "jev_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "jev-1.13.0",
+       "name": "jev_only",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "cleaning",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 1.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.92,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.06,
+         "low": 0.01,
+         "normal": 0.9299999999999999,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.92,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.96,
+         "yes": 0.04
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.76,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.88,
+         "yes": 0.12
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.26,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.37,
+         "yes": 0.63
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8200000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.08999999999999997,
+         "yes": 0.91
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       }
+      ],
+      "latency_ms": 259.739,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0"
+      ],
+      "name": "jev_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000039018",
+        "input_tokens": 929,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.002948",
+        "duration_ms": 1536,
+        "input_tokens": 1978,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "provider": "anthropic",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "cleaning",
+      "category_ok": true,
+      "cost_known_usd": "0.002948",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "llm_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "claude-haiku-4-5-20251001",
+       "name": "llm_only",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "routing_version": null,
+       "temperature": 0.0,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "cleaning",
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 6,
+        "probabilities": null,
+        "question": "category",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 4,
+        "probabilities": null,
+        "question": "priority",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_location",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_detail",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_timing",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1538.968,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "llm_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.002948",
+        "input_tokens": 1978,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000039018",
+        "duration_ms": 279,
+        "input_tokens": 929,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       },
+       {
+        "attempt": 1,
+        "cost_usd": "0.001290",
+        "duration_ms": 836,
+        "input_tokens": 1030,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 52,
+        "provider": "anthropic",
+        "questions": [
+         "missing_contact"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "cleaning",
+      "category_ok": true,
+      "cost_known_usd": "0.001329018",
+      "error": null,
+      "escalated_questions": [
+       "missing_contact"
+      ],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": {
+        "model": "jev-1.13.0",
+        "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+        "provider": "jev",
+        "temperature": null
+       },
+       "kind": "hybrid",
+       "llm": {
+        "model": "claude-haiku-4-5-20251001",
+        "prompt_version": "llm-istem-v1-e4fabd817c1e",
+        "provider": "anthropic",
+        "temperature": 0.0
+       },
+       "llm_min_self_reported": null,
+       "model": null,
+       "name": "hybrid",
+       "prompt_version": null,
+       "provider": null,
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": {
+        "category": 0.6,
+        "missing_contact": 0.6,
+        "missing_detail": 0.6,
+        "missing_location": 0.6,
+        "missing_timing": 0.6,
+        "priority": 0.6
+       }
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "cleaning",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 1.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.9,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.06,
+         "low": 0.01,
+         "normal": 0.93,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.92,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.96,
+         "yes": 0.04
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.76,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.88,
+         "yes": 0.12
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": false,
+        "answer": true,
+        "confidence": 0.26,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.37,
+         "yes": 0.63
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8400000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.07999999999999996,
+         "yes": 0.92
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1122.632,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0",
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "hybrid",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev",
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.00129",
+        "input_tokens": 1030,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 52,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000039018",
+        "input_tokens": 929,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     }
+    ]
+   },
+   "s023": {
+    "run_id": "20261002T162249Z-v1-dev",
+    "sample": {
+     "description": "Asansör kapısı kapanmıyor, kata gelince açılmıyor.",
+     "disputed": {
+      "note": "Asansör kapısı kapanmıyor/açılmıyor örneği: etiketleme rehberi 'mahsur kalma' riskini yüksek önceliğe, asansörü ise yalnızca 'diğer' kategorisine koyuyor; aynı grubun diğer iki yazımından farklı bir olgu anlatıyor. v1 etiketi (normal) değiştirilmedi.",
+      "status": "gözden geçirme bekliyor"
+     },
+     "gold": {
+      "category": "other",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s023",
+     "label_status": "single_annotator_unreviewed",
+     "location": "C Blok zemin kat",
+     "source": "synthetic",
+     "split": "dev",
+     "tags": [],
+     "title": "Asansör bozuk",
+     "variant": "kisa"
+    },
+    "strategies": [
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038682",
+        "duration_ms": 477,
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 179,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "other",
+      "category_ok": true,
+      "cost_known_usd": "0.000038682",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "jev_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "jev-1.13.0",
+       "name": "jev_only",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "other",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 1.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.87,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.91,
+         "low": 0.0,
+         "normal": 0.09,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.95,
+         "yes": 0.05
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.84,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.92,
+         "yes": 0.08
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.52,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.24,
+         "yes": 0.76
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8200000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.08999999999999997,
+         "yes": 0.91
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       }
+      ],
+      "latency_ms": 480.826,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0"
+      ],
+      "name": "jev_only",
+      "present": true,
+      "priority": "high",
+      "priority_ok": false,
+      "providers": [
+       "jev"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038682",
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 179,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.002937",
+        "duration_ms": 2432,
+        "input_tokens": 1967,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "provider": "anthropic",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "other",
+      "category_ok": true,
+      "cost_known_usd": "0.002937",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "llm_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "claude-haiku-4-5-20251001",
+       "name": "llm_only",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "routing_version": null,
+       "temperature": 0.0,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "other",
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 6,
+        "probabilities": null,
+        "question": "category",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 4,
+        "probabilities": null,
+        "question": "priority",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_location",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_detail",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_timing",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 2435.609,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "llm_only",
+      "present": true,
+      "priority": "high",
+      "priority_ok": false,
+      "providers": [
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.002937",
+        "input_tokens": 1967,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 194,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038682",
+        "duration_ms": 317,
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 179,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       },
+       {
+        "attempt": 1,
+        "cost_usd": "0.001249",
+        "duration_ms": 828,
+        "input_tokens": 1019,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "provider": "anthropic",
+        "questions": [
+         "missing_contact"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "other",
+      "category_ok": true,
+      "cost_known_usd": "0.001287682",
+      "error": null,
+      "escalated_questions": [
+       "missing_contact"
+      ],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": {
+        "model": "jev-1.13.0",
+        "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+        "provider": "jev",
+        "temperature": null
+       },
+       "kind": "hybrid",
+       "llm": {
+        "model": "claude-haiku-4-5-20251001",
+        "prompt_version": "llm-istem-v1-e4fabd817c1e",
+        "provider": "anthropic",
+        "temperature": 0.0
+       },
+       "llm_min_self_reported": null,
+       "model": null,
+       "name": "hybrid",
+       "prompt_version": null,
+       "provider": null,
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": {
+        "category": 0.6,
+        "missing_contact": 0.6,
+        "missing_detail": 0.6,
+        "missing_location": 0.6,
+        "missing_timing": 0.6,
+        "priority": 0.6
+       }
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "other",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 1.0,
+         "plumbing": 0.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "high",
+        "confidence": 0.79,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.84,
+         "low": 0.01,
+         "normal": 0.15,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.95,
+         "yes": 0.05
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.84,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.92,
+         "yes": 0.08
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": false,
+        "answer": true,
+        "confidence": 0.52,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.24,
+         "yes": 0.76
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.09999999999999998,
+         "yes": 0.9
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1150.563,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0",
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "hybrid",
+      "present": true,
+      "priority": "high",
+      "priority_ok": false,
+      "providers": [
+       "jev",
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.001249",
+        "input_tokens": 1019,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.000038682",
+        "input_tokens": 921,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 179,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     }
+    ]
+   },
+   "s051": {
+    "run_id": "20261002T162249Z-v1-dev",
+    "sample": {
+     "description": "tuvaletin suyu surekli akiyor durmuyor",
+     "disputed": null,
+     "gold": {
+      "category": "plumbing",
+      "expected_review": false,
+      "missing_info": [],
+      "priority": "normal"
+     },
+     "id": "s051",
+     "label_status": "single_annotator_unreviewed",
+     "location": "D blok zemin kat",
+     "source": "synthetic",
+     "split": "dev",
+     "tags": [
+      "typo"
+     ],
+     "title": "klozet su akitiyor",
+     "variant": "yazim_hatali"
+    },
+    "strategies": [
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038430",
+        "duration_ms": 407,
+        "input_tokens": 915,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.00003843",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "jev_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "jev-1.13.0",
+       "name": "jev_only",
+       "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+       "provider": "jev",
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 1.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.7,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.22,
+         "low": 0.01,
+         "normal": 0.77,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.88,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.94,
+         "yes": 0.06
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.8200000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.91,
+         "yes": 0.09
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.45999999999999996,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.27,
+         "yes": 0.73
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.09999999999999998,
+         "yes": 0.9
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       }
+      ],
+      "latency_ms": 410.187,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0"
+      ],
+      "name": "jev_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.00003843",
+        "input_tokens": 915,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.002941",
+        "duration_ms": 1584,
+        "input_tokens": 1961,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 196,
+        "provider": "anthropic",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.002941",
+      "error": null,
+      "escalated_questions": [],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": null,
+       "kind": "llm_only",
+       "llm": null,
+       "llm_min_self_reported": null,
+       "model": "claude-haiku-4-5-20251001",
+       "name": "llm_only",
+       "prompt_version": "llm-istem-v1-e4fabd817c1e",
+       "provider": "anthropic",
+       "routing_version": null,
+       "temperature": 0.0,
+       "thresholds": null
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 0.99,
+        "confidence_kind": "self_reported",
+        "n_options": 6,
+        "probabilities": null,
+        "question": "category",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 4,
+        "probabilities": null,
+        "question": "priority",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_location",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_detail",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.9,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.85,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_timing",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1588.445,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "llm_only",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.002941",
+        "input_tokens": 1961,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 196,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     },
+     {
+      "calls": [
+       {
+        "attempt": 1,
+        "cost_usd": "0.000038430",
+        "duration_ms": 287,
+        "input_tokens": 915,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "provider": "jev",
+        "questions": [
+         "category",
+         "priority",
+         "missing_location",
+         "missing_detail",
+         "missing_contact",
+         "missing_timing"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       },
+       {
+        "attempt": 1,
+        "cost_usd": "0.001243",
+        "duration_ms": 813,
+        "input_tokens": 1013,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "provider": "anthropic",
+        "questions": [
+         "missing_contact"
+        ],
+        "status": "ok",
+        "usage_estimated": false
+       }
+      ],
+      "calls_with_unknown_cost": 0,
+      "category": "plumbing",
+      "category_ok": true,
+      "cost_known_usd": "0.00128143",
+      "error": null,
+      "escalated_questions": [
+       "missing_contact"
+      ],
+      "failed": false,
+      "info": {
+       "escalate_on": null,
+       "is_mock": false,
+       "jev": {
+        "model": "jev-1.13.0",
+        "prompt_version": "jev-sorular-v1-8c2683f3f49e",
+        "provider": "jev",
+        "temperature": null
+       },
+       "kind": "hybrid",
+       "llm": {
+        "model": "claude-haiku-4-5-20251001",
+        "prompt_version": "llm-istem-v1-e4fabd817c1e",
+        "provider": "anthropic",
+        "temperature": 0.0
+       },
+       "llm_min_self_reported": null,
+       "model": null,
+       "name": "hybrid",
+       "prompt_version": null,
+       "provider": null,
+       "routing_version": null,
+       "temperature": null,
+       "thresholds": {
+        "category": 0.6,
+        "missing_contact": 0.6,
+        "missing_detail": 0.6,
+        "missing_location": 0.6,
+        "missing_timing": 0.6,
+        "priority": 0.6
+       }
+      },
+      "is_mock": false,
+      "judgments": [
+       {
+        "adopted": true,
+        "answer": "plumbing",
+        "confidence": 1.0,
+        "confidence_kind": "jev_confidence",
+        "n_options": 6,
+        "probabilities": {
+         "cleaning": 0.0,
+         "electrical": 0.0,
+         "it_network": 0.0,
+         "other": 0.0,
+         "plumbing": 1.0,
+         "unclear": 0.0
+        },
+        "question": "category",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": "normal",
+        "confidence": 0.72,
+        "confidence_kind": "jev_confidence",
+        "n_options": 4,
+        "probabilities": {
+         "high": 0.2,
+         "low": 0.01,
+         "normal": 0.79,
+         "unclear": 0.0
+        },
+        "question": "priority",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.9,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.95,
+         "yes": 0.05
+        },
+        "question": "missing_location",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": false,
+        "confidence": 0.8200000000000001,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.91,
+         "yes": 0.09
+        },
+        "question": "missing_detail",
+        "source": "jev"
+       },
+       {
+        "adopted": false,
+        "answer": true,
+        "confidence": 0.48,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.26,
+         "yes": 0.74
+        },
+        "question": "missing_contact",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.8,
+        "confidence_kind": "derived_margin",
+        "n_options": 2,
+        "probabilities": {
+         "no": 0.09999999999999998,
+         "yes": 0.9
+        },
+        "question": "missing_timing",
+        "source": "jev"
+       },
+       {
+        "adopted": true,
+        "answer": true,
+        "confidence": 0.95,
+        "confidence_kind": "self_reported",
+        "n_options": 2,
+        "probabilities": null,
+        "question": "missing_contact",
+        "source": "anthropic"
+       }
+      ],
+      "latency_ms": 1106.944,
+      "missing_info": [
+       "contact",
+       "timing"
+      ],
+      "model_versions": [
+       "jev-1.13.0",
+       "claude-haiku-4-5-20251001"
+      ],
+      "name": "hybrid",
+      "present": true,
+      "priority": "normal",
+      "priority_ok": true,
+      "providers": [
+       "jev",
+       "anthropic"
+      ],
+      "review_reasons": [],
+      "review_required": false,
+      "usage": [
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.001243",
+        "input_tokens": 1013,
+        "is_mock": false,
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 46,
+        "output_tokens_free": false,
+        "provider": "anthropic",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       },
+       {
+        "call_errors": 0,
+        "calls": 1,
+        "calls_with_unknown_cost": 0,
+        "calls_without_input_usage": 0,
+        "calls_without_output_usage": 0,
+        "cost_known_usd": "0.00003843",
+        "input_tokens": 915,
+        "is_mock": false,
+        "model": "jev-1.13.0",
+        "output_tokens": 181,
+        "output_tokens_free": true,
+        "provider": "jev",
+        "retries": 0,
+        "usage_estimated_calls": 0
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

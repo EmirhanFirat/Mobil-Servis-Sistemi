@@ -564,3 +564,30 @@ tr.selected {
   border-radius: var(--radius);
   padding: 0.5rem;
 }
+
+/* Canlı demo */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+.timing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+.timing-grid .card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+}
+.timing-grid strong {
+  font-size: 1.35rem;
+}
+.demo-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}

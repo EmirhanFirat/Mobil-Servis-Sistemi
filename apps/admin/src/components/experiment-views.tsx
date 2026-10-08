@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 
-import type { ApiClient } from '../lib/api'
+import type { ExperimentSource } from '../lib/api'
 import { confidenceText, questionText } from '../lib/decision'
 import type {
   ExperimentDetail,
@@ -457,7 +457,7 @@ export function SampleInspector({
   vocab,
   onClose,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   runId: string
   sampleId: string
   vocab: Vocabulary

@@ -1,0 +1,125 @@
+{
+ "categories": [
+  {
+   "code": "electrical",
+   "label": "Elektrik"
+  },
+  {
+   "code": "plumbing",
+   "label": "Su/Tesisat"
+  },
+  {
+   "code": "it_network",
+   "label": "İnternet/BT"
+  },
+  {
+   "code": "cleaning",
+   "label": "Temizlik"
+  },
+  {
+   "code": "other",
+   "label": "Diğer"
+  }
+ ],
+ "category_default_team": {
+  "cleaning": "cleaning",
+  "electrical": "electrical",
+  "it_network": "it",
+  "other": "general",
+  "plumbing": "plumbing"
+ },
+ "missing_info": [
+  {
+   "code": "location",
+   "label": "Konum eksik"
+  },
+  {
+   "code": "detail",
+   "label": "Açıklama yetersiz"
+  },
+  {
+   "code": "contact",
+   "label": "İletişim bilgisi eksik"
+  },
+  {
+   "code": "timing",
+   "label": "Ne zaman başladığı belirtilmemiş"
+  }
+ ],
+ "priorities": [
+  {
+   "code": "low",
+   "label": "Düşük"
+  },
+  {
+   "code": "normal",
+   "label": "Normal"
+  },
+  {
+   "code": "high",
+   "label": "Yüksek"
+  }
+ ],
+ "roles": [
+  {
+   "code": "requester",
+   "label": "Talep sahibi"
+  },
+  {
+   "code": "technician",
+   "label": "Teknik görevli"
+  },
+  {
+   "code": "admin",
+   "label": "Yönetici"
+  }
+ ],
+ "statuses": [
+  {
+   "code": "new",
+   "label": "Yeni"
+  },
+  {
+   "code": "needs_review",
+   "label": "İnceleme bekliyor"
+  },
+  {
+   "code": "assigned",
+   "label": "Atandı"
+  },
+  {
+   "code": "in_progress",
+   "label": "İşlemde"
+  },
+  {
+   "code": "resolved",
+   "label": "Çözüldü"
+  },
+  {
+   "code": "closed",
+   "label": "Kapatıldı"
+  }
+ ],
+ "teams": [
+  {
+   "code": "electrical",
+   "label": "Elektrik Ekibi"
+  },
+  {
+   "code": "plumbing",
+   "label": "Su/Tesisat Ekibi"
+  },
+  {
+   "code": "it",
+   "label": "BT Ekibi"
+  },
+  {
+   "code": "cleaning",
+   "label": "Temizlik Ekibi"
+  },
+  {
+   "code": "general",
+   "label": "Genel Bakım Ekibi"
+  }
+ ]
+}

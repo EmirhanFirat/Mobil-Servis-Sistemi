@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type RefObject } from 'react'
+import { useCallback, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { BarChart, ChartSvg, PairedBarChart } from '../components/experiment-charts'
@@ -14,7 +14,7 @@ import {
 } from '../components/experiment-views'
 import ShareCard from '../components/ShareCard'
 import { Empty, ErrorBox, Loading, Notice } from '../components/ui'
-import type { ApiClient } from '../lib/api'
+import type { ExperimentSource } from '../lib/api'
 import { costBarItems, latencyPairItems } from '../lib/chart-data'
 import { useSession } from '../lib/auth-context'
 import type { ExperimentDetail, ExperimentRun, ExperimentSample } from '../lib/experiment-types'
@@ -39,8 +39,30 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'paylasim', label: 'Paylaşım görünümü' },
 ]
 
+/** Yönetici paneli: kayıtlı deneyler API'den okunur (yalnızca yönetici). */
 export default function ModelComparisonPage() {
   const { api, vocab } = useSession()
+  return <ExperimentsPage api={api} vocab={vocab} />
+}
+
+/**
+ * Karşılaştırma ekranının kendisi. Veri kaynağı enjekte edilir: yönetici panelinde API, herkese açık
+ * demoda önceden hazırlanmış statik dosya (API uyanmadan açılır). İkisi de yalnızca OKUR.
+ */
+export function ExperimentsPage({
+  api,
+  vocab,
+  title = 'Model karşılaştırma',
+  description = 'Jev, LLM ve hibrit stratejilerin kayıtlı deneylerdeki ölçümleri. Bu sayfa yalnızca kayıtlı dosyaları okur; açmak, yenilemek, süzmek veya dışa aktarmak hiçbir model çağrısı başlatmaz.',
+  empty,
+}: {
+  api: ExperimentSource
+  vocab: Vocabulary
+  title?: string
+  description?: ReactNode
+  /** Deney yoksa gösterilecek metin (varsayılan, geliştirme ortamına özgü yönergedir). */
+  empty?: string
+}) {
   const [params, setParams] = useSearchParams()
   const loadList = useCallback(() => api.listExperiments(), [api])
   const { data, error, loading, retry } = useResource(loadList)
@@ -57,11 +79,8 @@ export default function ModelComparisonPage() {
   return (
     <>
       <div className="page-head">
-        <h1>Model karşılaştırma</h1>
-        <p className="muted">
-          Jev, LLM ve hibrit stratejilerin kayıtlı deneylerdeki ölçümleri. Bu sayfa yalnızca kayıtlı dosyaları okur;
-          açmak, yenilemek, süzmek veya dışa aktarmak hiçbir model çağrısı başlatmaz.
-        </p>
+        <h1>{title}</h1>
+        <p className="muted">{description}</p>
       </div>
 
       {loading && !data ? (
@@ -72,9 +91,10 @@ export default function ModelComparisonPage() {
         <Empty
           title="Kayıtlı deney bulunamadı"
           message={
-            data.runs_dir_found
+            empty ??
+            (data.runs_dir_found
               ? "evaluation/runs klasörü boş. Deney kayıtları Git'e girmez; yerelde `python -m app.evaluation run ...` ile üretilir. Bu ekran örnek veya uydurma rakam göstermez."
-              : "evaluation/runs klasörü bulunamadı. Deney kayıtları Git'e girmez; yerelde `python -m app.evaluation run ...` ile üretilir. Bu ekran örnek veya uydurma rakam göstermez."
+              : "evaluation/runs klasörü bulunamadı. Deney kayıtları Git'e girmez; yerelde `python -m app.evaluation run ...` ile üretilir. Bu ekran örnek veya uydurma rakam göstermez.")
           }
         />
       ) : data ? (
@@ -95,7 +115,7 @@ function Experiments({
   params,
   onUpdate,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   vocab: Vocabulary
   runs: ExperimentRun[]
   params: URLSearchParams
@@ -121,7 +141,7 @@ function RunView({
   params,
   onUpdate,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   vocab: Vocabulary
   run: ExperimentRun
   params: URLSearchParams
@@ -252,7 +272,7 @@ function SamplesTab({
   params,
   onUpdate,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   vocab: Vocabulary
   detail: ExperimentDetail
   params: URLSearchParams
@@ -313,7 +333,7 @@ function ShareTab({
   params,
   onUpdate,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   vocab: Vocabulary
   detail: ExperimentDetail
   params: URLSearchParams
@@ -382,7 +402,7 @@ function ShareWithExample({
   exampleId,
   svgRef,
 }: {
-  api: ApiClient
+  api: ExperimentSource
   vocab: Vocabulary
   detail: ExperimentDetail
   exampleId: string

@@ -53,6 +53,8 @@ interface RequestOptions {
   body?: unknown
   query?: Query
   authenticated?: boolean
+  /** Bu isteğe özel zaman aşımı (ms); verilmezse istemcinin varsayılanı. */
+  timeoutMs?: number
 }
 
 const FALLBACK_MESSAGES: Record<number, string> = {
@@ -98,7 +100,11 @@ function withQuery(path: string, query?: Query): string {
   return params.length > 0 ? `${path}?${params.join('&')}` : path
 }
 
-export function createApiClient(options: ClientOptions) {
+/**
+ * İstek yapıcı: zaman aşımı, ağ/HTTP hata çevirisi ve 401 işleme burada; yönetici API'si ve canlı
+ * demo istemcisi aynı kodu paylaşır.
+ */
+export function createRequester(options: ClientOptions) {
   const { baseUrl, getToken, onUnauthorized, timeoutMs = 15000 } = options
   const fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args))
 
@@ -112,7 +118,7 @@ export function createApiClient(options: ClientOptions) {
     }
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? timeoutMs)
     let response: Response
     try {
       response = await fetchImpl(`${baseUrl}${withQuery(path, query)}`, {
@@ -150,6 +156,11 @@ export function createApiClient(options: ClientOptions) {
     return payload as T
   }
 
+  return request
+}
+
+export function createApiClient(options: ClientOptions) {
+  const request = createRequester(options)
   const id = encodeURIComponent
 
   return {
@@ -195,3 +206,6 @@ export function createApiClient(options: ClientOptions) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>
+
+/** Model karşılaştırma sayfasının ihtiyaç duyduğu okuma uçları (API veya statik dosya sağlar). */
+export type ExperimentSource = Pick<ApiClient, 'listExperiments' | 'getExperiment' | 'getExperimentSample'>
