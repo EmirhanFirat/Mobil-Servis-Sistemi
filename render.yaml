@@ -1,0 +1,82 @@
+# Render Blueprint: ÜCRETSİZ API + ÜCRETSİZ statik demo sitesi. Veritabanı Render'da değil, Neon'dadır
+# (ücretsiz). Ayrıntılı yönerge: docs/DEPLOY.md.
+#
+# Bu dosyada GİZLİ DEĞER YOKTUR: `sync: false` olan değişkenlerin yalnızca ADI vardır, değerlerini
+# Render panelinde siz girersiniz (sohbete/Git'e yazılmaz). Ücretli plan, ödeme yöntemi veya ek
+# hizmet gerektirmez; tüm servisler `plan: free`.
+#
+# Otomatik yayın KAPALI (`autoDeployTrigger: off`): yeni commit kendiliğinden yayına çıkmaz; panelden
+# "Manual Deploy" ile yayınlanır (ücretsiz derleme dakikaları ve istenmeyen yayın korunur).
+services:
+  # --- API (FastAPI) ---
+  - type: web
+    name: talepakis-api
+    runtime: python
+    plan: free
+    region: frankfurt # Neon projesini de aynı bölgede (AWS eu-central-1, Frankfurt) kur.
+    rootDir: services/api
+    buildCommand: pip install -r requirements.txt
+    # Migration her açılışta çalışır (ücretsiz planda ayrı "pre-deploy" adımına güvenilmez); yalnızca
+    # EKLEME yapar ve tekrar çalıştırılması zararsızdır. Başarısız olursa servis AÇILMAZ (görünür hata).
+    # Tek süreç ve sınırlı eşzamanlılık: ücretsiz örneğin belleği/bağlantıları kısıtlıdır.
+    startCommand: >-
+      alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+      --limit-concurrency 40 --timeout-keep-alive 5
+    healthCheckPath: /health # veritabanına dokunmaz: Neon'u gereksiz uyandırmaz
+    autoDeployTrigger: off
+    envVars:
+      - key: TALEPAKIS_ENVIRONMENT
+        value: production
+      - key: TALEPAKIS_SECRET_KEY # Render üretir; oturum belirteçlerini imzalar
+        generateValue: true
+      # Neon HAVUZLU adres (host adında "-pooler"); parolayı panelde girersiniz.
+      - key: TALEPAKIS_DATABASE_URL
+        sync: false
+      # Neon DOĞRUDAN (havuzsuz) adres: yalnızca migration için.
+      - key: TALEPAKIS_MIGRATION_DATABASE_URL
+        sync: false
+      - key: TALEPAKIS_DATABASE_POOLED
+        value: "true"
+      - key: TALEPAKIS_DATABASE_POOL_SIZE
+        value: "3"
+      - key: TALEPAKIS_DATABASE_MAX_OVERFLOW
+        value: "1"
+      # Neon boştayken uyur (5 dk); ilk bağlantı uyanma süresini kapsamalı.
+      - key: TALEPAKIS_DATABASE_CONNECT_TIMEOUT_S
+        value: "20"
+      # Demo sitesinin adresi, JSON dizisi: ["https://talepakis-demo.onrender.com"]
+      - key: TALEPAKIS_CORS_ORIGINS
+        sync: false
+      # --- Canlı demo ---
+      - key: TALEPAKIS_DEMO_ENABLED
+        value: "true"
+      - key: TALEPAKIS_DEMO_PROVIDER
+        value: jev
+      - key: TALEPAKIS_DEMO_BUDGET_ID
+        value: canli-demo
+      # ÜCRETLİ ÇAĞRILAR KAPALI. Bütçe tutarı onaylanıp `manage create-budget` ile tanımlanana ve
+      # Jev anahtarı eklenene kadar "false" kalır; açmak bilinçli bir adımdır (docs/DEPLOY.md).
+      - key: TALEPAKIS_PAID_MODEL_CALLS_ENABLED
+        value: "false"
+      # Jev anahtarı (GİZLİ): onaydan sonra panelde girilir; depoda/sohbette/günlükte yer almaz.
+      - key: TALEPAKIS_JEV_API_KEY
+        sync: false
+
+  # --- Herkese açık demo sitesi (statik; API uyanmadan açılır) ---
+  - type: web
+    name: talepakis-demo
+    runtime: static
+    rootDir: apps/admin
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Yönetici ekranları OLMADAN, yalnızca herkese açık demo derlenir.
+      - key: VITE_APP_MODE
+        value: demo
+      # API'nin adresi (gizli değil; pakete gömülür): https://talepakis-api.onrender.com
+      - key: VITE_API_URL
+        sync: false

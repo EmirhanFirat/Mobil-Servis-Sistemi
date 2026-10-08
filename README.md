@@ -135,6 +135,10 @@ cd services\api
 
 Kullanıcı adı tahmin edilmesi kolay olmamalı (`yonetici` yalnızca demo hesabıdır).
 
+### Herkese açık portföy demosu (ücretsiz barındırma)
+
+Ziyaretçilerin tarayıcıdan gerçek Jev kararı deneyebildiği demo, `render.yaml` ile iki ücretsiz Render servisi (API + statik site) ve Neon ücretsiz PostgreSQL üzerinde çalışacak şekilde hazırlandı; adım adım yönerge, ücretsiz plan koşulları, bütçe tanımı, yedek ve geri dönüş [docs/DEPLOY.md](docs/DEPLOY.md) içindedir, mimari karar D35'tedir. Demo yalnızca `TALEPAKIS_DEMO_ENABLED=true` ile açılır; ücretli çağrılar bütçe tanımlanıp anahtar eklenene kadar kapalıdır. Demo arayüzü `VITE_APP_MODE=demo npm run build` ile (`apps/admin`) yönetici ekranları olmadan derlenir. Kayıtlı deney sonuçlarının statik kopyası `python -m app.manage export-demo-data` ile üretilir.
+
 ## Testler ve lint
 
 Mobil: `cd apps\mobile`, sonra `npm test` (Jest), `npm run typecheck`, `npx expo lint`.
