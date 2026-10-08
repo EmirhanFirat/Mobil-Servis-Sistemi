@@ -233,11 +233,24 @@ class BudgetedProvider:
         try:
             result = self.inner.classify(data, questions, strategy)
         except ProviderError as error:
-            self.guard.settle(reservation, self._actual(error.record))
+            self._settle(reservation, error.record)
             raise
         except BaseException:
             # Beklenmeyen kesinti (ör. Ctrl+C): istek gitmiş olabilir; en kötü durumla say.
             self.guard.settle(reservation, None)
             raise
-        self.guard.settle(reservation, self._actual(result.call))
+        self._settle(reservation, result.call)
         return result
+
+    def _settle(self, reservation: Reservation, record) -> None:
+        actual = self._actual(record)
+        if getattr(self.guard, "records_usage", False):
+            # Kalıcı (PostgreSQL) bütçe: denetim için sağlayıcının bildirdiği kullanım da yazılır.
+            self.guard.settle(
+                reservation,
+                actual,
+                input_tokens=record.input_tokens,
+                output_tokens=record.output_tokens,
+            )
+        else:
+            self.guard.settle(reservation, actual)

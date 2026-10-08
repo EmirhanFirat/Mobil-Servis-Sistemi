@@ -23,6 +23,11 @@ class JobOutcome(StrEnum):
     FAILED_PROVIDER = "failed_provider"  # sağlayıcı sınırlı retry'dan sonra yanıt vermedi
     FAILED_ERROR = "failed_error"  # beklenmeyen hata, iş denemeleri tükendi
     FAILED_WORKER_LOST = "failed_worker_lost"  # worker kayboldu, iş denemeleri tükendi
+    # Canlı demo (HTTP isteği içinde çalışan tek denemelik iş):
+    # İstek sağlayıcıya gitmiş OLABİLİR ama sonucu bilinmiyor (zaman aşımı, bağlantı koptu, süreç
+    # çağrı sırasında öldü). Otomatik yeniden GÖNDERİLMEZ; maliyet en kötü durumla sayılır.
+    PROVIDER_UNCERTAIN = "provider_uncertain"
+    BUDGET_EXHAUSTED = "budget_exhausted"  # bütçe yetmedi: istek hiç gönderilmedi
 
 
 class ApplyOutcome(StrEnum):

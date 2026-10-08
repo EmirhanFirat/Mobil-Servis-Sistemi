@@ -22,12 +22,24 @@ class Base(DeclarativeBase):
 
 
 def make_engine(settings: Settings) -> Engine:
-    """Bağlantı üst süreli motor: veritabanı kapalıyken istek asılı kalmaz, hızla hata verir."""
-    return create_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-        connect_args={"connect_timeout": settings.database_connect_timeout_s},
-    )
+    """Bağlantı üst süreli motor: veritabanı kapalıyken istek asılı kalmaz, hızla hata verir.
+
+    `database_pooled` (Neon `-pooler`, PgBouncer işlem modu): sunucu tarafı hazır ifadeler kapatılır
+    (`prepare_threshold=None`; işlem modunda bağlantılar istekler arasında değişebilir) ve havuz
+    küçük tutulur. Boşta kalan (veritabanı uyurken kapanan) bağlantılar `pool_pre_ping` ile
+    yenilenir; havuz 5 dk sonra bağlantıları yeniden kurar.
+    """
+    connect_args: dict[str, object] = {"connect_timeout": settings.database_connect_timeout_s}
+    options: dict[str, object] = {"pool_pre_ping": True}
+    if settings.database_pooled:
+        connect_args["prepare_threshold"] = None
+    if settings.database_pooled or settings.environment == "production":
+        options.update(
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+            pool_recycle=300,
+        )
+    return create_engine(settings.database_url, connect_args=connect_args, **options)
 
 
 @lru_cache

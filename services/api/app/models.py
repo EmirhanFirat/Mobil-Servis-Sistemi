@@ -17,6 +17,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -50,7 +51,10 @@ def _in_check(column: str, cls: type[StrEnum]) -> CheckConstraint:
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (_in_check("role", Role),)
+    __table_args__ = (
+        _in_check("role", Role),
+        Index("ix_users_is_demo_created_at", "is_demo", "created_at"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     username: Mapped[str] = mapped_column(String(50), unique=True)
@@ -58,6 +62,11 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(_enum(Role))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Canlı demo ziyaretçisi: parolasız, kısa ömürlü, yalnızca demo uçlarını kullanır; süre dolunca
+    # (yalnızca bu bayrağı taşıyanlar) silinir. Gerçek kullanıcılar ve seed hesapları False'tur.
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Ziyaretçi IP'sinin anahtarlı özeti (HMAC); ham IP saklanmaz. IP sınırı için, en iyi çaba.
+    demo_ip_hash: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     teams: Mapped[list["Team"]] = relationship(
@@ -260,3 +269,83 @@ class ModelCall(Base):
     request_id: Mapped[str | None] = mapped_column(String(200))
     error: Mapped[str | None] = mapped_column(String(300))
     is_mock: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Budget(Base):
+    """Bir harcama kapsamı (ör. canlı demo) ve ONAYLANMIŞ toplam sınırı. Sınır kendiliğinden
+    değişmez: oluşturma elle yapılır (`python -m app.manage create-budget`), otomatik yenileme veya
+    artırma yoktur. Değerlendirme deneylerinin dosya defterinden (`evaluation/budget/`)
+    bağımsızdır."""
+
+    __tablename__ = "budgets"
+    __table_args__ = (CheckConstraint("cap_usd > 0", name="cap_positive"),)
+
+    id: Mapped[str] = mapped_column(String(60), primary_key=True)
+    cap_usd: Mapped[Decimal] = mapped_column(Numeric(20, 10))
+    purpose: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BudgetEntry(Base):
+    """Bir sağlayıcı çağrısının (veya retry'ının) bütçe kaydı. Çağrıdan ÖNCE `pending` olarak
+    yazılır (en kötü durum rezervasyonu); çağrı bitince `settled` olur: gerçek ücret (`known`) ya
+    da bilinemediği için rezervasyonun kendisi (muhafazakâr). Süreç çağrı sırasında ölürse satır
+    `pending` kalır ve ÇÖZÜLMEMİŞ rezervasyon olarak en kötü bedelle sayılmaya devam eder (sıfır
+    harcama sayılmaz). Metin, anahtar veya kişisel veri içermez; yalnızca tutarlar ve sürümler."""
+
+    __tablename__ = "budget_entries"
+    __table_args__ = (
+        CheckConstraint("state IN ('pending', 'settled')", name="state"),
+        CheckConstraint("reserved_usd > 0", name="reserved_positive"),
+        CheckConstraint(
+            "state = 'pending' OR (charge_usd IS NOT NULL AND known IS NOT NULL)",
+            name="settled_has_charge",
+        ),
+        Index("ix_budget_entries_budget_id_state", "budget_id", "state"),
+        Index("ix_budget_entries_job_id", "job_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(start=1), primary_key=True)
+    budget_id: Mapped[str] = mapped_column(ForeignKey("budgets.id"))
+    # İş (ve talep) demo süresi dolunca silinse de bütçe kaydı kalır.
+    job_id: Mapped[UUID | None] = mapped_column(ForeignKey("decision_jobs.id", ondelete="SET NULL"))
+    provider: Mapped[str] = mapped_column(String(50))
+    model: Mapped[str] = mapped_column(String(100))
+    # Hesaplamanın dayandığı fiyat ve varsayım sürümü (ör. "jev-1.13.0 · 0.042 USD/1M girdi ...").
+    price_version: Mapped[str] = mapped_column(String(300))
+    reserved_usd: Mapped[Decimal] = mapped_column(Numeric(20, 10))
+    reserved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    state: Mapped[str] = mapped_column(String(10), default="pending", server_default="pending")
+    # Kesinleşen tutar: known=True ise sağlayıcı kullanımından hesaplanan GERÇEK bedel; False ise
+    # bilinemediği için rezerve edilen en kötü durum bedeli (gerçek harcama olmayabilir).
+    charge_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 10))
+    known: Mapped[bool | None] = mapped_column(Boolean)
+    # Gerçek ücret rezervasyonu aştıysa (üst sınır varsayımı ihlali) işaretlenir.
+    exceeded_reservation: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DemoRequest(Base):
+    """Bir demo talebinin tekrar-gönderme anahtarı: (ziyaretçi, metin özeti) tekildir. Aynı metin
+    yeniden gönderilirse (yenileme, çift tıklama, bağlantı kopması) yeni talep ve yeni ücretli çağrı
+    AÇILMAZ; var olan talebin durumu döner."""
+
+    __tablename__ = "demo_requests"
+    __table_args__ = (
+        UniqueConstraint("user_id", "request_key"),
+        Index("ix_demo_requests_created_at", "created_at"),
+        Index("ix_demo_requests_ip_hash_created_at", "ip_hash", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    ticket_id: Mapped[UUID] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"))
+    request_key: Mapped[str] = mapped_column(String(64))
+    ip_hash: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

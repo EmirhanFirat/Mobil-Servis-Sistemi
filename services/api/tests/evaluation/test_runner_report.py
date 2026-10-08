@@ -68,7 +68,7 @@ class TestRun:
         assert {p["provider"] for p in record["prices"]} >= {"jev", "mock-jev", "mock-llm"}
         jev_price = next(p for p in record["prices"] if p["provider"] == "jev")
         assert (
-            jev_price["input_usd_per_mtok"] == "0.042" and jev_price["checked_on"] == "2026-10-02"
+            jev_price["input_usd_per_mtok"] == "0.042" and jev_price["checked_on"] == "2026-10-08"
         )
         assert "python" in record["environment"]
 

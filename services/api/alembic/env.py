@@ -15,8 +15,10 @@ target_metadata = Base.metadata
 
 
 def _database_url() -> str:
-    # Testler config.attributes["url"] ile ayrı bir veritabanı verebilir.
-    return config.attributes.get("url") or get_settings().database_url
+    # Testler config.attributes["url"] ile ayrı bir veritabanı verebilir. Migration, varsa DOĞRUDAN
+    # (havuzsuz) adresle çalışır: havuzlayıcı üzerinden şema değişikliği önerilmez.
+    settings = get_settings()
+    return config.attributes.get("url") or settings.migration_database_url or settings.database_url
 
 
 def run_migrations_offline() -> None:

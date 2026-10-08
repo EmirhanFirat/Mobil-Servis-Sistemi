@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     # sn sürer: veritabanı kapalıyken her istek dakikalarca asılı kalır ve istemci "sunucu zamanında
     # yanıt vermedi" der. Kısa tutulur ki istek açık bir 503 (database_unavailable) ile bitsin.
     database_connect_timeout_s: int = Field(default=5, ge=1, le=60)
+    # Havuzlayıcılı sunucusuz veritabanı (Neon `-pooler` adresi, PgBouncer işlem modu): sunucu
+    # tarafı hazır ifadeler kapatılır ve bağlantı havuzu küçük tutulur (ücretsiz katman sınırlı).
+    database_pooled: bool = False
+    database_pool_size: int = Field(default=5, ge=1, le=20)
+    database_max_overflow: int = Field(default=2, ge=0, le=20)
+    # Migration için DOĞRUDAN (havuzsuz) adres; boşsa `database_url` kullanılır. Neon, şema
+    # değişikliklerinin havuzlayıcı üzerinden değil doğrudan bağlantıyla yapılmasını önerir.
+    migration_database_url: str | None = None
 
     # Model karşılaştırma sayfasının okuduğu deney klasörü (yalnızca okunur). Boşsa depo kökündeki
     # evaluation/runs kullanılır. Deney dosyaları Git'e girmez; yerelde çalıştırmayla oluşur.
@@ -56,6 +64,36 @@ class Settings(BaseSettings):
 
     # İstek gövdesi üst sınırı (bayt). En büyük meşru istek ~4 KB'lık talep metnidir.
     max_request_body_bytes: int = Field(default=65536, ge=1024, le=10_000_000)
+
+    # İstemci IP'si. Boşsa doğrudan bağlantının adresi kullanılır. Ters vekilin ardında (ör. Render)
+    # bu adres vekilin adresidir ve tüm ziyaretçiler tek IP görünür. Başlık adı verilirse değer o
+    # başlıktan alınır: virgüllü listede (X-Forwarded-For) SAĞDAN `trusted_proxy_hops`'uncu girdi
+    # (güvendiğimiz vekilin eklediği; istemcinin sola ekleyebildikleri yok sayılır). Başlık
+    # sağlayıcı tarafından belgelenmemişse (Render) doğrulanmadan açılmamalıdır.
+    client_ip_header: str | None = None
+    trusted_proxy_hops: int = Field(default=1, ge=1, le=5)
+
+    # --- Canlı demo (portföy demosu). Varsayılan KAPALI; ücretli çağrılar ayrıca onay ister. ---
+    demo_enabled: bool = False
+    # "jev": gerçek Jev (yalnızca jev_only; Anthropic ve hibrit demoda yoktur). "mock": yalnızca
+    # yerel deneme için; sonuç açıkça MOCK etiketlenir ve üretimde kabul edilmez.
+    demo_provider: Literal["jev", "mock"] = "jev"
+    # Demo için PostgreSQL'deki bütçe kapsamı. Değerlendirme deneylerinin dosya defterinden
+    # bağımsızdır; tutarı `python -m app.manage create-budget` ile ELLE (onaydan sonra) tanımlanır.
+    demo_budget_id: str = Field(default="canli-demo", pattern=r"^[a-z0-9][a-z0-9._-]{1,58}$")
+    demo_jev_timeout_s: float = Field(default=15.0, ge=1, le=30)
+    demo_session_minutes: int = Field(default=180, ge=5, le=1440)
+    demo_max_decisions_per_session: int = Field(default=5, ge=1, le=50)
+    demo_max_concurrent_calls: int = Field(default=2, ge=1, le=20)
+    demo_max_sessions_per_day: int = Field(default=300, ge=1, le=100_000)
+    demo_max_decisions_per_day: int = Field(default=500, ge=1, le=100_000)
+    # IP sınırı yalnızca doğru IP'nin bilindiği (`client_ip_header` doğrulandı) durumda açılmalıdır;
+    # aksi hâlde tüm ziyaretçiler tek IP sayılır ve kota herkes için tükenir.
+    demo_ip_limits_enabled: bool = False
+    demo_max_sessions_per_ip_hour: int = Field(default=5, ge=1, le=1000)
+    demo_max_decisions_per_ip_hour: int = Field(default=20, ge=1, le=1000)
+    # Ziyaretçi hesabı ve talepleri bu süre sonra silinir (yalnızca is_demo hesapları).
+    demo_retention_hours: int = Field(default=72, ge=1, le=720)
 
     # Ücretli model çağrıları VARSAYILAN OLARAK KAPALIDIR. Açmadan gerçek Jev/LLM çağrısı yapılamaz
     # (bkz. app/decision/factory.py). Anahtarlar yalnızca burada, ortam değişkeninden okunur;
@@ -145,6 +183,9 @@ class Settings(BaseSettings):
                 "Üretimde TALEPAKIS_DATABASE_URL geliştirme veritabanı parolasını (veya boş "
                 "parolayı) kullanamaz."
             )
+        if self.demo_enabled and self.demo_provider != "jev":
+            # Mock sonuçlar herkese açık demoda "gerçek Jev" gibi görünmesin.
+            raise ValueError("Üretimde TALEPAKIS_DEMO_PROVIDER yalnızca 'jev' olabilir.")
         return self
 
 

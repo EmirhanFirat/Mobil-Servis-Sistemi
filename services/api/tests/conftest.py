@@ -119,7 +119,8 @@ def db(db_engine: Engine) -> Iterator[Session]:
         # Ekipler başvuru verisidir (migration ile gelir); boşaltılmaz.
         conn.execute(
             text(
-                "TRUNCATE ticket_events, tickets, team_memberships, users RESTART IDENTITY CASCADE"
+                "TRUNCATE ticket_events, tickets, team_memberships, users, budgets "
+                "RESTART IDENTITY CASCADE"
             )
         )
 

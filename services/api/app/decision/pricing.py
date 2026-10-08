@@ -31,7 +31,8 @@ JEV_1_13 = PriceEntry(
     input_usd_per_mtok=Decimal("0.042"),
     output_usd_per_mtok=Decimal("0"),
     source_url="https://docs.typesafe.ai/models",
-    checked_on=date(2026, 10, 2),
+    # 2026-10-08'de resmî fiyat sayfasından yeniden doğrulandı (değişmedi; kalkma notu yok).
+    checked_on=date(2026, 10, 8),
     note="Çıktı token'ları ücretsiz ama yine de kaydedilir. Canlı deney öncesi yeniden doğrula.",
 )
 

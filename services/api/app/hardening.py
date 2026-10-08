@@ -5,6 +5,7 @@ birden çok API süreci çalıştırılırsa her süreç kendi sayacını tutar 
 çarpılır); o durumda ters vekil (reverse proxy) düzeyinde de oran sınırı kullanılmalıdır.
 """
 
+import ipaddress
 import json
 import math
 import threading
@@ -128,10 +129,33 @@ def get_login_throttle(settings: Annotated[Settings, Depends(get_settings)]) -> 
 LoginThrottleDep = Annotated[LoginThrottle, Depends(get_login_throttle)]
 
 
-def client_ip(request: Request) -> str:
-    """İstemci adresi. Ters vekilin ardında uvicorn `--proxy-headers --forwarded-allow-ips=<vekil>`
-    ile çalıştırılmalıdır; aksi hâlde tüm istekler vekilin adresiyle görünür."""
-    return request.client.host if request.client else "bilinmiyor"
+def client_ip(request: Request, settings: Settings | None = None) -> str:
+    """İstemci adresi.
+
+    Varsayılan: doğrudan bağlantının adresi. Ters vekilin ardında bu vekilin adresidir (tüm
+    ziyaretçiler tek IP görünür). `client_ip_header` verilirse değer o başlıktan alınır; virgüllü
+    listede (X-Forwarded-For) SAĞDAN `trusted_proxy_hops`'uncu girdi kullanılır: güvendiğimiz
+    vekilin eklediği girdidir, istemcinin sola ekleyebildikleri yok sayılır (sahte başlıkla IP
+    değiştirilemez). Başlık yok, beklenenden kısa veya geçerli bir IP değilse doğrudan adrese
+    düşülür; asla başlıktaki ham metne güvenilmez.
+    """
+    peer = request.client.host if request.client else "bilinmiyor"
+    header = settings.client_ip_header if settings is not None else None
+    if not header:
+        return peer
+    parts = [
+        part.strip()
+        for value in request.headers.getlist(header)
+        for part in value.split(",")
+        if part.strip()
+    ]
+    if len(parts) < settings.trusted_proxy_hops:
+        return peer
+    candidate = parts[-settings.trusted_proxy_hops]
+    try:
+        return str(ipaddress.ip_address(candidate))
+    except ValueError:
+        return peer
 
 
 # --- Güvenlik başlıkları --------------------------------------------------------------------

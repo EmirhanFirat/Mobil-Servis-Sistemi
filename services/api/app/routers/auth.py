@@ -18,7 +18,7 @@ def login(
     settings: SettingsDep,
     throttle: LoginThrottleDep,
 ) -> TokenResponse:
-    ip = client_ip(request)
+    ip = client_ip(request, settings)
     # Engelliyken parola hiç doğrulanmaz (doğru parola bile reddedilir) ve hesabın var olup
     # olmadığı yanıttan anlaşılmaz.
     wait = throttle.retry_after(ip, data.username)
