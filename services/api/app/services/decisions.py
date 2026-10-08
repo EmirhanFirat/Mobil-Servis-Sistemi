@@ -352,6 +352,30 @@ def fail_or_retry_job(
     return "failed"
 
 
+def fail_stale_job(
+    db: Session, job_id: UUID, *, outcome: JobOutcome, error: str, now: datetime
+) -> bool:
+    """Kira süresi dolmuş 'running' işi kalıcı başarısız yapar (ör. süreç çağrı sırasında
+    öldü). Talep korunur: hâlâ uygunsa insana verilir ve görünür bir hata olayı yazılır. İş
+    yeniden ÇALIŞTIRILMAZ (istek sağlayıcıya gitmiş olabilir; otomatik yeniden gönderme yok).
+    Değiştirdiyse True; iş zaten bitmiş/çalışıyorsa False."""
+    job = db.scalar(
+        select(DecisionJob)
+        .where(
+            DecisionJob.id == job_id,
+            DecisionJob.status == JobStatus.RUNNING,
+            DecisionJob.locked_until < now,
+        )
+        .with_for_update()
+    )
+    if job is None:
+        db.rollback()
+        return False
+    _fail_job(db, job, outcome, error, now)
+    db.commit()
+    return True
+
+
 # --- Yönetici görünümü ---
 
 

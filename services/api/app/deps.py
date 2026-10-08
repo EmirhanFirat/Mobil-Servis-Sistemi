@@ -52,3 +52,10 @@ def require_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def reject_demo(user: User) -> None:
+    """Canlı demo ziyaretçileri yalnızca /demo uçlarını kullanır; normal talep açma ve durum
+    geçişi (sınırsız veri üretimi) onlara kapalıdır."""
+    if user.is_demo:
+        raise forbidden("Demo oturumları bu işlemi yalnızca demo ekranından yapabilir.")

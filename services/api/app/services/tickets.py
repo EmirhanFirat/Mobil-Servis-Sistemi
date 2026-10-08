@@ -137,9 +137,12 @@ def create_ticket(
     *,
     decision_strategy: str | None = None,
     decision_max_attempts: int = 3,
+    commit: bool = True,
 ) -> Ticket:
     """Talep açar. `decision_strategy` verilirse karar işi AYNI işlemde kaydedilir: talep ve iş
-    birlikte kaydolur veya birlikte geri alınır; model/worker çalışmasa da talep kaybolmaz."""
+    birlikte kaydolur veya birlikte geri alınır; model/worker çalışmasa da talep kaybolmaz.
+    `commit=False`: işlemi çağıran bitirir (ör. demo isteği anahtarı da aynı işlemde yazılsın);
+    talep ve iş yine de veritabanına gönderilmiştir (flush), kimlikleri kullanılabilir."""
     ticket = Ticket(
         title=data.title,
         description=data.description,
@@ -152,7 +155,10 @@ def create_ticket(
     db.add(ticket)
     if decision_strategy is not None:
         decisions.enqueue_job(db, ticket, decision_strategy, max_attempts=decision_max_attempts)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return ticket
 
 

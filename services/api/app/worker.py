@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_engine
-from app.decision.contract import DecisionUnavailable
+from app.decision.contract import BudgetExhausted, DecisionUnavailable
 from app.decision.registry import build_free_strategy
 from app.domain.decision_jobs import JobOutcome
 from app.services import decisions
@@ -55,6 +55,91 @@ def _backoff(attempt: int) -> timedelta:
     return timedelta(seconds=min(RETRY_BASE_S * 2 ** (attempt - 1), RETRY_MAX_S))
 
 
+def _provider_failure_outcome(failure: DecisionUnavailable) -> JobOutcome:
+    return JobOutcome.FAILED_PROVIDER
+
+
+def run_claimed(
+    session_factory: SessionFactory,
+    claim: decisions.JobClaim,
+    *,
+    build_strategy: StrategyBuilder = build_free_strategy,
+    clock: Callable[[], datetime] = _utcnow,
+    unexpected_retry_delay: Callable[[int], timedelta | None] = _backoff,
+    provider_outcome: Callable[[DecisionUnavailable], JobOutcome] = _provider_failure_outcome,
+) -> None:
+    """Alınmış (kiralanmış) bir işi A/B/C aşamalarıyla işler. Worker ve canlı demo (HTTP isteği
+    içinde, tek denemelik) aynı kodu kullanır; karar motoru kopyalanmaz.
+
+    `unexpected_retry_delay(deneme)`: beklenmeyen hatada işin ne kadar sonra yeniden kuyruğa
+    alınacağı (None = yeniden denenmez, kalıcı başarısız). `provider_outcome`: sağlayıcı kalıcı
+    hata verince işin sonucu (varsayılan FAILED_PROVIDER; demo "belirsiz"i ayırır)."""
+    # A) Kısa okuma: talep artık uygun değilse model hiç çağrılmaz.
+    with session_factory() as db:
+        job_input = decisions.begin_job(db, claim)
+    if job_input is None:  # talep silinmiş; iş de silinmiş olmalı
+        return
+    if job_input.skip is not None:
+        with session_factory() as db:
+            decisions.complete_job_skipped(db, claim, job_input.skip, clock())
+        return
+
+    # B) Sağlayıcı çağrısı: açık veritabanı oturumu/kilidi YOK.
+    try:
+        strategy = build_strategy(claim.strategy)
+        decision = strategy.decide(job_input.data)  # type: ignore[attr-defined]
+    except DecisionUnavailable as failure:
+        # Sınırlı retry bitti: kalıcı hata. Talep korunur ve insana verilir; denemelerin
+        # maliyeti kaydedilir. Sessizce başka sağlayıcıya geçilmez.
+        with session_factory() as db:
+            decisions.fail_or_retry_job(
+                db,
+                claim,
+                outcome=provider_outcome(failure),
+                error=str(failure),
+                calls=failure.calls,
+                now=clock(),
+                retry_delay=None,
+            )
+        return
+    except BudgetExhausted as stop:
+        # Harcama sınırı: istek GÖNDERİLMEDİ. Yeniden denenmez; o ana dek yapılmış çağrıların
+        # kaydı korunur.
+        with session_factory() as db:
+            decisions.fail_or_retry_job(
+                db,
+                claim,
+                outcome=JobOutcome.BUDGET_EXHAUSTED,
+                error="budget_exhausted",
+                calls=stop.calls,
+                now=clock(),
+                retry_delay=None,
+            )
+        return
+    except (
+        Exception
+    ) as exc:  # beklenmeyen hata: yalnızca tür kaydedilir (ayrıntıda kullanıcı verisi olabilir)
+        with session_factory() as db:
+            decisions.fail_or_retry_job(
+                db,
+                claim,
+                outcome=JobOutcome.FAILED_ERROR,
+                error=type(exc).__name__,
+                calls=(),
+                now=clock(),
+                retry_delay=unexpected_retry_delay(claim.attempt),
+            )
+        return
+
+    # C) Tek işlemde kayıt. Kira kaybedildiyse veya aynı iş başka yerde tamamlandıysa hiçbir şey
+    # yazılmaz (çift karar/olay yok).
+    with session_factory() as db:
+        try:
+            decisions.complete_job_with_decision(db, claim, decision, clock())
+        except IntegrityError:
+            db.rollback()
+
+
 def process_next(
     session_factory: SessionFactory,
     *,
@@ -68,57 +153,7 @@ def process_next(
         claim = decisions.claim_next_job(db, worker_id=worker_id, now=clock(), lease=lease)
     if claim is None:
         return False
-
-    # A) Kısa okuma: talep artık uygun değilse model hiç çağrılmaz.
-    with session_factory() as db:
-        job_input = decisions.begin_job(db, claim)
-    if job_input is None:  # talep silinmiş; iş de silinmiş olmalı
-        return True
-    if job_input.skip is not None:
-        with session_factory() as db:
-            decisions.complete_job_skipped(db, claim, job_input.skip, clock())
-        return True
-
-    # B) Sağlayıcı çağrısı: açık veritabanı oturumu/kilidi YOK.
-    try:
-        strategy = build_strategy(claim.strategy)
-        decision = strategy.decide(job_input.data)  # type: ignore[attr-defined]
-    except DecisionUnavailable as failure:
-        # Sınırlı retry bitti: kalıcı hata. Talep korunur ve insana verilir; denemelerin
-        # maliyeti kaydedilir. Sessizce başka sağlayıcıya geçilmez.
-        with session_factory() as db:
-            decisions.fail_or_retry_job(
-                db,
-                claim,
-                outcome=JobOutcome.FAILED_PROVIDER,
-                error=str(failure),
-                calls=failure.calls,
-                now=clock(),
-                retry_delay=None,
-            )
-        return True
-    except (
-        Exception
-    ) as exc:  # beklenmeyen hata: yalnızca tür kaydedilir (ayrıntıda kullanıcı verisi olabilir)
-        with session_factory() as db:
-            decisions.fail_or_retry_job(
-                db,
-                claim,
-                outcome=JobOutcome.FAILED_ERROR,
-                error=type(exc).__name__,
-                calls=(),
-                now=clock(),
-                retry_delay=_backoff(claim.attempt),
-            )
-        return True
-
-    # C) Tek işlemde kayıt. Kira kaybedildiyse veya aynı iş başka yerde tamamlandıysa hiçbir şey
-    # yazılmaz (çift karar/olay yok).
-    with session_factory() as db:
-        try:
-            decisions.complete_job_with_decision(db, claim, decision, clock())
-        except IntegrityError:
-            db.rollback()
+    run_claimed(session_factory, claim, build_strategy=build_strategy, clock=clock)
     return True
 
 

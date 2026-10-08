@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.deps import AdminUser, CurrentUser, DbSession, SettingsDep
+from app.deps import AdminUser, CurrentUser, DbSession, SettingsDep, reject_demo
 from app.domain.decision_jobs import DECISION_OFF
 from app.domain.vocabulary import TicketStatus
 from app.schemas import (
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/tickets", tags=["talepler"])
 def create_ticket(
     data: TicketCreate, user: CurrentUser, db: DbSession, settings: SettingsDep
 ) -> TicketDetail:
+    reject_demo(user)
     # Karar işi talebin kendisiyle AYNI işlemde kaydedilir (model/worker çalışmasa da talep durur).
     strategy = None if settings.decision_strategy == DECISION_OFF else settings.decision_strategy
     ticket = svc.create_ticket(
@@ -69,6 +70,7 @@ def get_ticket(ticket_id: UUID, user: CurrentUser, db: DbSession) -> TicketDetai
 def transition_ticket(
     ticket_id: UUID, data: TransitionRequest, user: CurrentUser, db: DbSession
 ) -> TicketDetail:
+    reject_demo(user)
     svc.transition_ticket(db, user, ticket_id, data.to, data.note)
     return svc.detail_for(db, user, ticket_id)
 

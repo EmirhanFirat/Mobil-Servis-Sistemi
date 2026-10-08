@@ -44,13 +44,16 @@ def password_version(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
 
 
-def create_access_token(user_id: UUID, settings: Settings, *, password_hash: str) -> str:
+def create_access_token(
+    user_id: UUID, settings: Settings, *, password_hash: str, minutes: int | None = None
+) -> str:
+    """`minutes` verilmezse `access_token_minutes` (demo ziyaretçileri daha kısa ömürlüdür)."""
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
         "pv": password_version(password_hash),
         "iat": now,
-        "exp": now + timedelta(minutes=settings.access_token_minutes),
+        "exp": now + timedelta(minutes=minutes or settings.access_token_minutes),
     }
     return jwt.encode(payload, settings.secret_key.get_secret_value(), algorithm=JWT_ALGORITHM)
 

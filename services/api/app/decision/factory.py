@@ -14,7 +14,9 @@ class MissingApiKey(RuntimeError):
     """İstenen sağlayıcı için API anahtarı ortam değişkeninde yok."""
 
 
-def jev_provider_from_settings(settings: Settings) -> JevProvider:
+def jev_provider_from_settings(
+    settings: Settings, *, timeout_s: float | None = None
+) -> JevProvider:
     if not settings.paid_model_calls_enabled:
         raise PaidCallsDisabled(
             "Ücretli model çağrıları kapalı. Gerçek Jev çağrısı için bütçe onayından sonra "
@@ -24,10 +26,12 @@ def jev_provider_from_settings(settings: Settings) -> JevProvider:
         raise MissingApiKey(
             "TALEPAKIS_JEV_API_KEY tanımlı değil (anahtarı yalnızca ortam değişkeniyle verin)."
         )
+    options = {} if timeout_s is None else {"timeout_s": timeout_s}
     return JevProvider(
         settings.jev_api_key.get_secret_value(),
         model=settings.jev_model,
         base_url=settings.jev_base_url,
+        **options,
     )
 
 

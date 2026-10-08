@@ -22,7 +22,7 @@ def authenticate(db: Session, username: str, password: str) -> User:
     )
     if user is None:
         burn_password_check(password)
-    elif verify_password(user.password_hash, password) and user.is_active:
+    elif verify_password(user.password_hash, password) and user.is_active and not user.is_demo:
         return user
     raise unauthorized("Kullanıcı adı veya parola hatalı.")
 

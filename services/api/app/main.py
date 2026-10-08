@@ -5,7 +5,7 @@ from app import __version__
 from app.config import get_settings
 from app.errors import register_error_handlers
 from app.hardening import BodyLimitMiddleware, SecurityHeadersMiddleware
-from app.routers import admin, auth, experiments, health, meta, tickets
+from app.routers import admin, auth, demo, experiments, health, meta, tickets
 
 
 def create_app() -> FastAPI:
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
         tickets.router,
         admin.router,
         experiments.router,
+        demo.router,
     ):
         app.include_router(router)
     return app
