@@ -226,6 +226,18 @@ Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; ye
 
 **Yapılmayanlar ve nedenleri.** Sürekli ping (istenmedi, ücretsiz kotayı da tüketir); sağlayıcıyla birebir fatura eşleşmesi iddiası (Jev bunu belgelemiyor); IP sınırını varsayılan açmak (başlık doğrulanmadan yanlış kişiyi engeller); canlı demoda Anthropic/hibrit (ücretli çağrılar kapalı kalır). Ücretli çağrılar, **canlı demo bütçe tutarı kullanıcı tarafından onaylanana ve `canli-demo` tanımlanana kadar kapalıdır**.
 
+## D36 — Hermes Agent ile canlı izleme ve arayüz çalışması: proje skill'leri, LLM'siz izleme, yayın kullanıcıda (2026-10-21)
+
+**Sorun.** Demo canlıda ama eksikleri var (Jev demosu kapalı, ~60 sn uyanma, panel yayında değil, arayüz düzeni). Kullanıcı bu işleri bilgisayarında kurulu Hermes Agent'a (Nous Research, v0.22) yaptırmak istiyor; ajanın hem canlıyı kontrol edip ayağa kaldırması hem arayüzü düzeltmesi için kalıcı bir yapı gerekiyor.
+
+**Karar.**
+- Kurallar tek kaynakta kalır: Hermes depo kökündeki `AGENTS.md`'yi kendiliğinden yükler. İş yöntemleri **depo içi skill** olarak `.agents/skills/` altında (Hermes'in `.hermes/skills` ile birlikte taradığı, başka ajanlarla ortak klasör): `talepakis-canli-kontrol`, `talepakis-arayuz`, `talepakis-yayin`. Hermes bunları yalnızca `hermes skills trust` ile güvenilen depoda yükler.
+- **İzleme LLM'siz:** `canli_kontrol.py` yalnızca standart kütüphane, yalnızca `GET`, gizli bilgi yok; Hermes'te `--no-agent` cron işi günde iki kez çalıştırır (model ücreti yok), sorun yoksa sessizdir, rapor yerel dosyaya düşer. Hermes kapalıyken çalışmaz.
+- **Uyanık tutma pingi yok** (kullanıcı seçimi, D35 korunur): günde iki kontrol API'yi kısa süre uyandırır, kotaya etkisi küçüktür; uyanık tutma amacı taşımaz.
+- **Yayın kullanıcıda** (kullanıcı seçimi): ajan kontrolleri geçen commit'i gönderir, Render'da Manual Deploy'u kullanıcı yapar; deploy hook veya Render API anahtarı ajana verilmez. Bütçe tutarı ve ücretli çağrıları açma yine kullanıcı onayıdır.
+
+**Yapılmayanlar ve nedenleri.** Ajana otomatik yayın yetkisi (istenmedi; yanlış commit doğrudan canlıya çıkardı); LLM'li zamanlanmış rapor (her çalışmada model ücreti; betik çıktısı yeterli); Hermes'e özgü ayrı kural dosyası (`.hermes.md` `AGENTS.md`'nin yerine geçer ve kurallar iki yerde çatallanırdı).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

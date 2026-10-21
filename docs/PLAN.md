@@ -36,6 +36,13 @@ Her aşama çalışan bir dikey dilimdir; bitince doğrulanır ve yerel commit a
 
 **Aşama 5 — Yayına hazırlık.** Yapılandırma, migration, demo verisi, hata yönetimi, secret kontrolü, kurulum/deploy yönergesi, demo senaryosu. Deploy platformu ve maliyet kullanıcıyla netleştirilmeden yayın yapılmaz.
 
+**Aşama 6 — Canlı demonun eksikleri (2026-10-21).** Demo Render + Neon'da yayında (ücretsiz). Kullanıcının belirttiği eksikler; Hermes Agent bu listeyle `.agents/skills/` yöntemlerini kullanarak çalışır (D36). Yayını kullanıcı yapar.
+- **6.1 Jev demosu kapalı.** Neden: bütçe tanımlı değil, anahtar yok, ücretli çağrılar kapalı (`not_configured`). Kullanıcı adımları: bütçe tutarını onaylamak, `manage create-budget` (yerelden, Neon doğrudan adresiyle), Render'da `TALEPAKIS_JEV_API_KEY` ve `TALEPAKIS_PAID_MODEL_CALLS_ENABLED=true` (`docs/DEPLOY.md` 3-4). Bitiş: canlı kontrolde `jev` uyarısı yok; kullanıcı onayıyla tek bir gerçek karar canlıda görüldü.
+- **6.2 Yavaş açılma.** Ücretsiz API ilk istekte ~60 sn uyanıyor (2026-10-21: 62 sn). Uyanık tutma pingi yok (D35/D36). İş: bekleme süresince sayfanın kullanılabilir kalması (statik sonuçlar, açık süre bilgisi), uyanma isteğinin sayfa açılır açılmaz gitmesi. Bitiş: soğuk açılışta ziyaretçi boş/donuk ekran görmüyor; ölçüm canlı kontrolle kayıtlı.
+- **6.3 Yönetici paneli canlıda yok.** Seçenek: ayrı ücretsiz Render statik servis (panel derlemesi, `VITE_APP_MODE` boş), API'nin CORS listesine eklenmesi, ilk yöneticinin `manage create-admin` ile yerelden oluşturulması, `docs/GUVENLIK.md` kalan risklerinin yeniden değerlendirilmesi. Herkese açık bir giriş yüzeyi ekler: önce plan ve risk notu, **kullanıcı onayından sonra** `render.yaml`. Bitiş: panel canlıda giriş yapıyor, demo ziyaretçisi panele giremiyor (testli).
+- **6.4 Arayüz görünümü/düzeni.** Önce canlı demonun 375 px ve 1280 px'te görsel denetimi ve somut sorun listesi; zevk kararları kullanıcıya sorulur, açık kusurlar düzeltilir. Bitiş: `apps/admin` kontrolleri temiz, yatay kaydırma yok, açık/koyu tema okunur.
+- Kapsam dışı (ayrı karar): mobil uygulamanın mağaza/Expo yayını.
+
 ## Açık riskler
 
 - Docker Desktop kendiliğinden açılmaz; testler PostgreSQL'e bağlı çalışacaksa önce kapsayıcının ayakta olması gerekir. Worker kilitleri gibi PostgreSQL'e özgü davranış gerçek PostgreSQL üzerinde test edilecek.

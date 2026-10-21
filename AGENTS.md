@@ -68,3 +68,8 @@ Yeni oturumda sırayla oku: bu dosya → `docs/STATUS.md` → `docs/PLAN.md` →
 - `docs/STATUS.md`: mevcut durum, son doğrulamalar, sınırlamalar, sıradaki somut adım. İlgili commitin içine al; yalnızca son SHA'yı yazmak için ek commit zinciri oluşturma.
 - `docs/DECISIONS.md`: anlamlı mimari kararlar, kısa gerekçeyle. Her küçük seçimi kaydetme.
 - `docs/PLAN.md`: aşamalar ve bitiş ölçütleri. Her aşama çalışan bir dikey dilim olarak tamamlanır.
+
+## Proje skill'leri ve canlı sistem
+
+- Tekrarlanan iş yöntemleri `.agents/skills/` altındadır (Hermes Agent ve bu klasörü okuyan diğer ajanlar): `talepakis-canli-kontrol` (canlıyı kontrol et/uyandır/teşhis), `talepakis-arayuz` (web arayüzü), `talepakis-yayin` (kontrol → commit → push → kullanıcının yayını → doğrulama). Kurallar burada kalır; skill'ler yalnızca yöntemdir (D36).
+- Canlı: demo `https://talepakis-demo.onrender.com`, API `https://talepakis-api.onrender.com` (Render + Neon, ücretsiz). Yayını kullanıcı Render panelinden yapar; uyanık tutma pingi kurulmaz.
