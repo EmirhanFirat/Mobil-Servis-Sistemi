@@ -1,6 +1,6 @@
 import { Badge, Notice } from '../components/ui'
 import { DEMO_STATE_LABELS, answerText, confidenceText, durationText, questionLabel, tokenText } from '../lib/demo-text'
-import type { DemoDecisionResult, DemoState } from '../lib/demo-types'
+import type { DemoDecisionResult, DemoJudgment, DemoState, DemoUsage } from '../lib/demo-types'
 import { NA, formatUsd } from '../lib/experiments'
 import { labelOf, ticketNumber } from '../lib/format'
 import type { Vocabulary } from '../lib/types'
@@ -60,16 +60,16 @@ function Facts({ result, vocab }: { result: DemoDecisionResult; vocab: Vocabular
   )
 }
 
-function Judgments({ result, vocab }: { result: DemoDecisionResult; vocab: Vocabulary | null }) {
-  const info = result.decision
-  if (!info || info.judgments.length === 0) return null
+/** Soru bazında yargılar: canlı sonuçta ve kayıtlı örnekte aynı tablo. */
+export function JudgmentsDetails({ judgments, vocab }: { judgments: DemoJudgment[]; vocab: Vocabulary | null }) {
+  if (judgments.length === 0) return null
   const labels = {
     categories: (code: string) => (code === 'unclear' ? 'Belirsiz' : labelOf(vocab?.categories ?? [], code)),
     priorities: (code: string) => (code === 'unclear' ? 'Belirsiz' : labelOf(vocab?.priorities ?? [], code)),
   }
   return (
     <details>
-      <summary>Soru bazında yargılar ve güven değerleri ({info.judgments.length})</summary>
+      <summary>Soru bazında yargılar ve güven değerleri ({judgments.length})</summary>
       <div className="table-wrap">
         <table>
           <thead>
@@ -80,7 +80,7 @@ function Judgments({ result, vocab }: { result: DemoDecisionResult; vocab: Vocab
             </tr>
           </thead>
           <tbody>
-            {info.judgments.map((judgment) => (
+            {judgments.map((judgment) => (
               <tr key={judgment.question}>
                 <td>{questionLabel(judgment.question)}</td>
                 <td>{answerText(judgment, labels)}</td>
@@ -98,8 +98,15 @@ function Judgments({ result, vocab }: { result: DemoDecisionResult; vocab: Vocab
   )
 }
 
-function Usage({ result }: { result: DemoDecisionResult }) {
-  const usage = result.usage
+/** Kullanım ve ücret: bilinmeyen değer "bilinmiyor"/"bildirilmedi" yazılır, sıfır gösterilmez. */
+export function UsageFacts({
+  usage,
+  unknownNote = 'kullanım bildirilmedi; bütçede en kötü bedelle sayılır',
+}: {
+  usage: DemoUsage | null
+  /** Ücret bilinmediğinde parantez içindeki açıklama (canlı sonuç ile kayıtlı örnekte farklıdır). */
+  unknownNote?: string
+}) {
   if (!usage) return <p className="muted small">Jev'e bu talep için istek gönderilmedi; kullanım ve ücret yok.</p>
   return (
     <dl className="facts">
@@ -120,7 +127,7 @@ function Usage({ result }: { result: DemoDecisionResult }) {
           </>
         ) : (
           <>
-            bilinmiyor <span className="muted small">(kullanım bildirilmedi; bütçede en kötü bedelle sayılır)</span>
+            bilinmiyor <span className="muted small">({unknownNote})</span>
           </>
         )}
       </dd>
@@ -203,9 +210,9 @@ export default function ResultPanel({
       </div>
 
       <Facts result={result} vocab={vocab} />
-      <Judgments result={result} vocab={vocab} />
+      <JudgmentsDetails judgments={result.decision?.judgments ?? []} vocab={vocab} />
       <h3>Kullanım ve ücret (gerçek, bildirilen)</h3>
-      <Usage result={result} />
+      <UsageFacts usage={result.usage} />
       <h3>Süreler (birbirinden ayrı ölçülür)</h3>
       <Timings run={run} wakeMs={wakeMs} />
       <p className="muted small">

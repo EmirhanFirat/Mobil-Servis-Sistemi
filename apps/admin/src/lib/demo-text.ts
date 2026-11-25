@@ -134,14 +134,16 @@ export function validateInput(
   return null
 }
 
+// Kapalı demo bir arıza değildir (ör. anahtar bilinçli olarak tanımlanmadı): metin nötr tutulur ve
+// ziyaretçiye ne yapabileceği söylenir. Gerçek hatalar (sunucuya ulaşılamadı vb.) ayrı gösterilir.
 const UNAVAILABLE_TEXT: Record<string, string> = {
-  disabled: 'Canlı demo şu anda kapalı.',
-  not_configured: 'Canlı demo henüz yapılandırılmadı; bu yüzden Jev çağrısı yapılamıyor.',
-  budget_exhausted: 'Demo için ayrılan bütçe doldu; yeni Jev çağrısı yapılamıyor.',
+  disabled: 'Canlı Jev denemesi şu an kapalı.',
+  not_configured: 'Canlı Jev denemesi şu an kapalı.',
+  budget_exhausted: 'Demo için ayrılan bütçe doldu; canlı Jev denemesi şu an kapalı.',
 }
 
 /** Demo kullanılabilirse null; değilse nedeni (herkese açık, kaba neden). */
 export function unavailableText(status: { enabled: boolean; reason: string | null }): string | null {
   if (status.enabled) return null
-  return UNAVAILABLE_TEXT[status.reason ?? ''] ?? 'Canlı demo şu anda kullanılamıyor.'
+  return UNAVAILABLE_TEXT[status.reason ?? ''] ?? 'Canlı Jev denemesi şu an kullanılamıyor.'
 }

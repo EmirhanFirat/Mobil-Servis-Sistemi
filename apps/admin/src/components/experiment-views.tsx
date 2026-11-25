@@ -90,18 +90,40 @@ export function RunPicker({
 
 // --------------------------------------------------------------------------- uyarılar ve koşullar
 
-export function Warnings({ detail }: { detail: ExperimentDetail }) {
-  if (detail.warnings.length === 0) return null
+/**
+ * Ölçümün kendisini bozan durumlar (mock, yarım çalıştırma, değişen veri seti, başarısız karar,
+ * okunamayan kayıt): her zaman görünür, kırmızı. Diğerleri okuma notudur (küçük örneklem, tartışmalı
+ * etiket…): tek bir katlanabilir bölümde toplanır ve hata rengi taşımaz.
+ */
+const SERIOUS_WARNINGS = new Set(['mock', 'partial', 'dataset_changed', 'failed_decisions', 'uncertainty_unreadable'])
+
+export function Warnings({ detail, notes = [] }: { detail: ExperimentDetail; notes?: string[] }) {
+  const serious = detail.warnings.filter((warning) => SERIOUS_WARNINGS.has(warning.code))
+  const reading = [...detail.warnings.filter((warning) => !SERIOUS_WARNINGS.has(warning.code)).map((w) => w.text), ...notes]
+  const small = detail.warnings.some((warning) => warning.code === 'small_sample')
+  if (serious.length === 0 && reading.length === 0) return null
   return (
     <div className="stack">
-      {detail.warnings.map((warning) => (
-        <Notice
-          key={warning.code}
-          tone={warning.code === 'small_sample' || warning.code === 'hybrid_v1' ? 'info' : 'error'}
-        >
+      {serious.map((warning) => (
+        <Notice key={warning.code} tone="error">
           {warning.text}
         </Notice>
       ))}
+      {reading.length > 0 ? (
+        <details className="panel reading-notes">
+          <summary>
+            Bu sonuçları okurken{' '}
+            <span className="muted small">
+              ({reading.length} not{small ? ' · küçük örneklem: genel sonuç çıkarılamaz' : ''})
+            </span>
+          </summary>
+          <ul className="reasons">
+            {reading.map((text) => (
+              <li key={text}>{text}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </div>
   )
 }
@@ -167,36 +189,41 @@ export function Conditions({ detail }: { detail: ExperimentDetail }) {
 export function ComparisonTable({ detail }: { detail: ExperimentDetail }) {
   const rows = comparisonRows(detail)
   return (
-    <div className="table-wrap">
-      <table className="compare" aria-label="Strateji karşılaştırması">
-        <thead>
-          <tr>
-            <th scope="col">Ölçüt</th>
-            {detail.strategies.map((r) => (
-              <th scope="col" key={r.name}>
-                {strategyTitle(r.info)}
-                <div className="muted small nowrap">{strategyModelLine(r.info)}</div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.key}
-              className={row.group === 'ucret' && row.key === 'cost_estimate_1000' ? 'estimate' : undefined}
-            >
-              <th scope="row">
-                {row.label}
-                {row.note ? <div className="muted small">{row.note}</div> : null}
-              </th>
+    <div className="stack compare-block">
+      <p className="scroll-hint muted small" aria-hidden="true">
+        Tablo yana kaydırılır: diğer stratejiler sağda →
+      </p>
+      <div className="table-wrap compare-wrap">
+        <table className="compare" aria-label="Strateji karşılaştırması">
+          <thead>
+            <tr>
+              <th scope="col">Ölçüt</th>
               {detail.strategies.map((r) => (
-                <td key={r.name}>{row.cells[r.name] ?? NA}</td>
+                <th scope="col" key={r.name}>
+                  {strategyTitle(r.info)}
+                  <div className="muted small nowrap">{strategyModelLine(r.info)}</div>
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.key}
+                className={row.group === 'ucret' && row.key === 'cost_estimate_1000' ? 'estimate' : undefined}
+              >
+                <th scope="row">
+                  {row.label}
+                  {row.note ? <div className="muted small">{row.note}</div> : null}
+                </th>
+                {detail.strategies.map((r) => (
+                  <td key={r.name}>{row.cells[r.name] ?? NA}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

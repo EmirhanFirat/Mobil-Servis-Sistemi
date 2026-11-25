@@ -259,6 +259,11 @@ details > summary {
   background: transparent;
   color: var(--primary);
 }
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .btn:hover:not(:disabled) {
   background: var(--info-soft);
 }
@@ -550,12 +555,69 @@ tr.selected {
 }
 .charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 1rem;
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem;
+}
+/* Grafik renkleri satır içi (PNG için); ekranda temaya uydurulur. CSS sunum özniteliğini ezer. */
+.charts .chart-ink {
+  fill: var(--text);
+}
+.charts .chart-muted {
+  fill: var(--muted);
+}
+.charts .chart-grid {
+  stroke: var(--border);
+}
+@media (prefers-color-scheme: dark) {
+  /* Koyu zeminde koyu mavi/turuncu/yeşil çubuklar seçilmez; aynı tonu açarak karşıtlık sağlanır. */
+  .charts .chart-bar {
+    filter: brightness(1.55) saturate(1.1);
+  }
+}
+/* Karşılaştırma tablosu: ilk sütun yapışkan, dar ekranda kaydırma ipucu. */
+.scroll-hint {
+  display: none;
+  margin: 0;
+}
+table.compare thead th:first-child,
+table.compare tbody th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  box-shadow: 1px 0 0 var(--border);
+}
+table.compare tr.estimate th[scope='row'] {
+  background: color-mix(in srgb, #d97706 10%, var(--card));
+}
+@media (max-width: 720px) {
+  .scroll-hint {
+    display: block;
+  }
+  table.compare {
+    min-width: 34rem;
+  }
+  table.compare tbody th[scope='row'] {
+    min-width: 8.5rem;
+    max-width: 9.5rem;
+  }
+  .compare-wrap th,
+  .compare-wrap td {
+    padding: 0.5rem 0.6rem;
+  }
+}
+.reading-notes > summary {
+  padding: 0.1rem 0;
+}
+.reading-notes .reasons {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 .share-wrap {
   overflow-x: auto;
@@ -566,11 +628,214 @@ tr.selected {
 }
 
 /* Canlı demo */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.35rem;
+}
+/* Dokunma alanı en az 40 px. */
+.chips .btn {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.8rem;
+}
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.intro .lead {
+  margin: 0;
+  font-size: 1.05rem;
+  max-width: 62rem;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+.steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.steps li > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+.step-no {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--info-soft);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+.server-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+details.server-status {
+  display: block;
+  max-width: 28rem;
+}
+details.server-status > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--success);
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--success-soft);
+  list-style: none;
+}
+details.server-status > summary::-webkit-details-marker {
+  display: none;
+}
+details.server-status p {
+  margin: 0.35rem 0 0;
+}
+.server-status .dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.server-status.down {
+  color: var(--danger);
+  font-weight: 600;
+}
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  flex: none;
+}
+.state.compact {
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.form-note {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.form-note p {
+  margin: 0;
+}
+.form-note details {
+  margin-top: 0.35rem;
+}
+.form-note details p {
+  margin-top: 0.35rem;
+}
+.recorded {
+  border-style: dashed;
+}
+.badge-recorded {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.repo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.repo-link:hover {
+  background: var(--info-soft);
+}
+/* Mobil: marka, sekmeler ve kaynak kod ikonu tek satırda; yükseklik ~52 px. */
+@media (max-width: 640px) {
+  .demo-topbar {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding: 0.45rem 0.6rem;
+  }
+  .demo-topbar .brand {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .demo-topbar .brand-sub,
+  .demo-topbar .repo-text {
+    display: none;
+  }
+  .demo-topbar nav {
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  .demo-topbar nav a {
+    padding: 0.45rem 0.45rem;
+    font-size: 0.86rem;
+    white-space: nowrap;
+  }
+  .demo-topbar .spacer {
+    display: none;
+  }
+  .demo-topbar .repo-link {
+    margin-left: auto;
+    padding: 0.4rem;
+    border: 0;
+  }
+  .content {
+    padding: 1rem;
+  }
+  /* Uzun etiketler (ör. "En kötü durum bedeliyle sayılan") değer sütununu sıkıştırmasın. */
+  .facts {
+    grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+    gap: 0.35rem 0.75rem;
+  }
+  .facts dd {
+    overflow-wrap: anywhere;
+  }
+  .intro .lead {
+    font-size: 1rem;
+  }
 }
 .timing-grid {
   display: grid;

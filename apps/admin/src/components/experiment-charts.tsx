@@ -4,12 +4,15 @@ import { type BarItem, type PairItem, FONT, GRID, INK, MUTED, barPixels } from '
 import { UNKNOWN } from '../lib/experiments'
 
 /**
- * Basit çubuk grafikler (ek bağımlılık yok). Tüm öznitelikler SATIR İÇİDİR (CSS sınıfı yok): aynı SVG
- * hem ekranda gösterilir hem PNG'ye çevrilir. Ücret ve gecikme AYRI grafiklerdir; farklı birimler
+ * Basit çubuk grafikler (ek bağımlılık yok). Renkler SATIR İÇİ özniteliktir: aynı SVG hem ekranda
+ * gösterilir hem PNG'ye çevrilir (PNG her zaman açık zeminlidir). `chart-*` sınıfları yalnızca ekranda
+ * (`.charts` içinde) temaya uyum sağlar; CSS sunum özniteliğini ezer, PNG'yi etkilemez. Ücret ve gecikme AYRI grafiklerdir; farklı birimler
  * aynı eksende karıştırılmaz. Bilinmeyen değer çubuk çizilmez, "bilinmiyor" yazılır (sıfır değil).
  */
 
 interface Frame {
+  /** Yalnızca ekrandaki grafikte true: tema sınıfları eklenir. PNG'ye giden SVG'de sınıf olmaz. */
+  themed?: boolean
   x: number
   y: number
   width: number
@@ -18,14 +21,19 @@ interface Frame {
   subtitle?: string
 }
 
-function Header({ x, y, title, subtitle }: Pick<Frame, 'x' | 'y' | 'title' | 'subtitle'>) {
+/** Tema sınıfı yalnızca ekranda; aksi hâlde öznitelik hiç yazılmaz. */
+function themeClass(themed: boolean | undefined, name: string): string | undefined {
+  return themed ? name : undefined
+}
+
+function Header({ x, y, title, subtitle, themed }: Pick<Frame, 'x' | 'y' | 'title' | 'subtitle' | 'themed'>) {
   return (
     <>
-      <text x={x} y={y + 20} fontFamily={FONT} fontSize={18} fontWeight={700} fill={INK}>
+      <text x={x} y={y + 20} fontFamily={FONT} fontSize={18} fontWeight={700} fill={INK} className={themeClass(themed, 'chart-ink')}>
         {title}
       </text>
       {subtitle ? (
-        <text x={x} y={y + 40} fontFamily={FONT} fontSize={13} fill={MUTED}>
+        <text x={x} y={y + 40} fontFamily={FONT} fontSize={13} fill={MUTED} className={themeClass(themed, 'chart-muted')}>
           {subtitle}
         </text>
       ) : null}
@@ -33,7 +41,7 @@ function Header({ x, y, title, subtitle }: Pick<Frame, 'x' | 'y' | 'title' | 'su
   )
 }
 
-export function BarChart({ items, x, y, width, height, title, subtitle }: Frame & { items: BarItem[] }) {
+export function BarChart({ items, x, y, width, height, title, subtitle, themed }: Frame & { items: BarItem[] }) {
   const top = y + 62
   const baseline = y + height - 34
   const plot = baseline - top
@@ -44,8 +52,8 @@ export function BarChart({ items, x, y, width, height, title, subtitle }: Frame 
 
   return (
     <g role="img" aria-label={title}>
-      <Header x={x} y={y} title={title} subtitle={subtitle} />
-      <line x1={x} x2={x + width} y1={baseline} y2={baseline} stroke={GRID} strokeWidth={1.5} />
+      <Header x={x} y={y} title={title} subtitle={subtitle} themed={themed} />
+      <line x1={x} x2={x + width} y1={baseline} y2={baseline} stroke={GRID} strokeWidth={1.5} className={themeClass(themed, 'chart-grid')} />
       {items.map((item, index) => {
         const cx = x + slot * index + slot / 2
         const known = item.value !== null
@@ -60,6 +68,7 @@ export function BarChart({ items, x, y, width, height, title, subtitle }: Frame 
                 height={barHeight}
                 rx={4}
                 fill={item.color}
+                className={themeClass(themed, 'chart-bar')}
               />
             ) : null}
             <text
@@ -70,6 +79,7 @@ export function BarChart({ items, x, y, width, height, title, subtitle }: Frame 
               fontSize={15}
               fontWeight={700}
               fill={known ? INK : MUTED}
+              className={themeClass(themed, known ? 'chart-ink' : 'chart-muted')}
             >
               {known ? item.text : UNKNOWN}
             </text>
@@ -81,6 +91,7 @@ export function BarChart({ items, x, y, width, height, title, subtitle }: Frame 
               fontSize={15}
               fontWeight={600}
               fill={INK}
+              className={themeClass(themed, 'chart-ink')}
             >
               {item.label}
             </text>
@@ -102,6 +113,7 @@ export function PairedBarChart({
   subtitle,
   firstLabel,
   secondLabel,
+  themed,
 }: Frame & { items: PairItem[]; firstLabel: string; secondLabel: string }) {
   const top = y + 62
   const baseline = y + height - 34
@@ -114,22 +126,31 @@ export function PairedBarChart({
     const h = barPixels(value, max, plot)
     if (h === 0) return null
     return (
-      <rect x={cx - barWidth / 2} y={baseline - h} width={barWidth} height={h} rx={4} fill={color} opacity={opacity} />
+      <rect
+        x={cx - barWidth / 2}
+        y={baseline - h}
+        width={barWidth}
+        height={h}
+        rx={4}
+        fill={color}
+        opacity={opacity}
+        className={themeClass(themed, 'chart-bar')}
+      />
     )
   }
 
   return (
     <g role="img" aria-label={title}>
-      <Header x={x} y={y} title={title} subtitle={subtitle} />
-      <rect x={x + width - 170} y={y + 6} width={12} height={12} rx={2} fill={MUTED} />
-      <text x={x + width - 152} y={y + 17} fontFamily={FONT} fontSize={13} fill={INK}>
+      <Header x={x} y={y} title={title} subtitle={subtitle} themed={themed} />
+      <rect x={x + width - 170} y={y + 6} width={12} height={12} rx={2} fill={MUTED} className={themeClass(themed, 'chart-muted')} />
+      <text x={x + width - 152} y={y + 17} fontFamily={FONT} fontSize={13} fill={INK} className={themeClass(themed, 'chart-ink')}>
         {firstLabel}
       </text>
-      <rect x={x + width - 96} y={y + 6} width={12} height={12} rx={2} fill={MUTED} opacity={0.4} />
-      <text x={x + width - 78} y={y + 17} fontFamily={FONT} fontSize={13} fill={INK}>
+      <rect x={x + width - 96} y={y + 6} width={12} height={12} rx={2} fill={MUTED} opacity={0.4} className={themeClass(themed, 'chart-muted')} />
+      <text x={x + width - 78} y={y + 17} fontFamily={FONT} fontSize={13} fill={INK} className={themeClass(themed, 'chart-ink')}>
         {secondLabel}
       </text>
-      <line x1={x} x2={x + width} y1={baseline} y2={baseline} stroke={GRID} strokeWidth={1.5} />
+      <line x1={x} x2={x + width} y1={baseline} y2={baseline} stroke={GRID} strokeWidth={1.5} className={themeClass(themed, 'chart-grid')} />
       {items.map((item, index) => {
         const cx = x + slot * index + slot / 2
         const left = cx - barWidth * 0.62
@@ -148,6 +169,7 @@ export function PairedBarChart({
               fontSize={13}
               fontWeight={700}
               fill={item.first === null ? MUTED : INK}
+              className={themeClass(themed, item.first === null ? 'chart-muted' : 'chart-ink')}
             >
               {item.first === null ? UNKNOWN : item.firstText}
             </text>
@@ -159,6 +181,7 @@ export function PairedBarChart({
               fontSize={13}
               fontWeight={700}
               fill={item.second === null ? MUTED : INK}
+              className={themeClass(themed, item.second === null ? 'chart-muted' : 'chart-ink')}
             >
               {item.second === null ? UNKNOWN : item.secondText}
             </text>
@@ -170,6 +193,7 @@ export function PairedBarChart({
               fontSize={15}
               fontWeight={600}
               fill={INK}
+              className={themeClass(themed, 'chart-ink')}
             >
               {item.label}
             </text>

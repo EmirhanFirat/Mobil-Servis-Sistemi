@@ -151,7 +151,8 @@ describe('durum metinleri', () => {
   it('unavailableText: kullanılabilirse null, değilse nedeni', () => {
     expect(unavailableText({ enabled: true, reason: null })).toBeNull()
     expect(unavailableText({ enabled: false, reason: 'budget_exhausted' })).toContain('bütçe doldu')
-    expect(unavailableText({ enabled: false, reason: 'not_configured' })).toContain('yapılandırılmadı')
+    // Kapalı demo "bozuk site" gibi anlatılmaz: teknik ayrıntı yerine nötr durum.
+    expect(unavailableText({ enabled: false, reason: 'not_configured' })).toBe('Canlı Jev denemesi şu an kapalı.')
     expect(unavailableText({ enabled: false, reason: 'disabled' })).toContain('kapalı')
     expect(unavailableText({ enabled: false, reason: null })).toContain('kullanılamıyor')
   })

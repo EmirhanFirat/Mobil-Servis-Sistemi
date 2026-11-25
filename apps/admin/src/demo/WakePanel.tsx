@@ -1,52 +1,62 @@
-import { Loading, Notice } from '../components/ui'
-import { durationText, unavailableText } from '../lib/demo-text'
+import { durationText } from '../lib/demo-text'
 import { WAKE_ATTEMPTS, WAKE_PAUSE_MS, type WakeState } from './use-wake-up'
 
-/** Sunucunun hazırlık durumu. Bu istekler model çağrısı yapmaz. */
-export default function WakePanel({ state, onRetry }: { state: WakeState; onRetry: () => void }) {
-  if (state.phase === 'checking') {
+const SLEEP_NOTE =
+  'Ücretsiz barındırma kullanıyoruz: sunucu boştayken uyur ve ilk açılış yaklaşık 1 dakika sürebilir. Bu istek model çağrısı yapmaz.'
+
+/**
+ * Sunucunun hazırlık durumu: küçük bir rozet. Uyanırken ilerleme göstergesi görünür kalır; hazır
+ * olunca ayrıntı (uyanma süresi) rozetin içinde katlanır. Bu istekler model çağrısı yapmaz.
+ */
+export default function WakePanel({ state }: { state: WakeState }) {
+  if (state.phase === 'checking' || state.phase === 'waiting') {
+    const text =
+      state.phase === 'checking'
+        ? `Sunucu hazırlanıyor… (deneme ${state.attempt}/${WAKE_ATTEMPTS})`
+        : `Sunucu uyanıyor; ${Math.round(WAKE_PAUSE_MS / 1000)} sn sonra yeniden denenecek (deneme ${state.attempt}/${WAKE_ATTEMPTS})`
     return (
-      <Loading
-        message={
-          `Sunucu hazırlanıyor… (deneme ${state.attempt}/${WAKE_ATTEMPTS}). Ücretsiz barındırma kullanıyoruz: ` +
-          'sunucu boştayken uyur ve ilk açılış yaklaşık 1 dakika sürebilir. Bu istek model çağrısı yapmaz.'
-        }
-      />
-    )
-  }
-  if (state.phase === 'waiting') {
-    return (
-      <Notice tone="info">
-        Sunucu henüz hazır değil (deneme {state.attempt}/{WAKE_ATTEMPTS}); yaklaşık {Math.round(WAKE_PAUSE_MS / 1000)}{' '}
-        sn sonra yeniden denenecek. Ücretsiz sunucu uyanıyor olabilir; biraz beklemen yeterli.
-      </Notice>
+      <div className="server-status waking" role="status" aria-live="polite" title={SLEEP_NOTE}>
+        <span className="spinner spinner-small" aria-hidden="true" />
+        <span>
+          {text}
+          <span className="visually-hidden"> {SLEEP_NOTE}</span>
+        </span>
+      </div>
     )
   }
   if (state.phase === 'failed') {
     return (
-      <div className="state" role="alert">
-        <h3>Sunucu şu an yanıt vermedi</h3>
-        <p className="muted">
-          {WAKE_ATTEMPTS} deneme sonuçsuz kaldı ({state.error.message}). Ücretsiz sunucunun uyanması bazen daha uzun
-          sürer. Hazır olduğunda yeniden deneyebilirsin; sayfa kendiliğinden sürekli denemez.
-        </p>
-        <button type="button" className="btn btn-primary" onClick={onRetry}>
-          Yeniden dene
-        </button>
-      </div>
+      <span className="server-status down" role="status">
+        <span className="dot" aria-hidden="true" /> Sunucuya ulaşılamadı
+      </span>
     )
   }
-  const reason = unavailableText(state.status)
+  const detail =
+    `İlk istekten hazır olana kadar geçen süre: ${durationText(state.wakeMs)}` +
+    (state.status.database_ms !== null ? ` (bunun veritabanı kısmı: ${durationText(state.status.database_ms)})` : '') +
+    '. Bu süre ücretsiz sunucunun/veritabanının uyanmasını içerir; Jev çağrı süresi değildir.'
   return (
-    <div className="stack">
-      {reason ? <Notice tone="error">{reason}</Notice> : null}
-      <p className="small muted" data-testid="wake-summary">
-        Sunucu hazır. İlk istekten hazır olana kadar geçen süre: <strong>{durationText(state.wakeMs)}</strong>
-        {state.status.database_ms !== null ? (
-          <> (bunun veritabanı kısmı: {durationText(state.status.database_ms)})</>
-        ) : null}
-        . Bu süre ücretsiz sunucunun/veritabanının uyanmasını içerir; Jev çağrı süresi değildir.
+    <details className="server-status ready" data-testid="wake-summary" title={detail}>
+      <summary>
+        <span className="dot" aria-hidden="true" /> Sunucu hazır
+      </summary>
+      <p className="small muted">{detail}</p>
+    </details>
+  )
+}
+
+/** Denemeler tükendi: gerçek bir bağlantı sorunu; kullanıcı kontrollü yeniden deneme. */
+export function WakeFailed({ state, onRetry }: { state: Extract<WakeState, { phase: 'failed' }>; onRetry: () => void }) {
+  return (
+    <div className="state compact" role="alert">
+      <h3>Sunucu şu an yanıt vermedi</h3>
+      <p className="muted">
+        {WAKE_ATTEMPTS} deneme sonuçsuz kaldı ({state.error.message}). Ücretsiz sunucunun uyanması bazen daha uzun
+        sürer. Hazır olduğunda yeniden deneyebilirsin; sayfa kendiliğinden sürekli denemez.
       </p>
+      <button type="button" className="btn btn-primary" onClick={onRetry}>
+        Yeniden dene
+      </button>
     </div>
   )
 }

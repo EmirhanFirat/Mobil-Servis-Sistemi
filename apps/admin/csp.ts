@@ -42,11 +42,14 @@ export function apiOrigin(apiUrl: string | undefined): string | null {
 export function injectDemoHead(html: string, csp: string): string {
   const escaped = csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
   const meta = `<meta http-equiv="Content-Security-Policy" content="${escaped}" />`
-  const description =
-    '<meta name="description" content="TalepAkış canlı demo: Türkçe servis taleplerinde gerçek Jev ile karar üretimi ve kayıtlı ölçüm sonuçları." />'
+  // Açıklama ve og:description index.html'de (proje tanımı); burada yalnızca başlıklar demoya uyarlanır.
   return html
     .replace('<title>TalepAkış Yönetim</title>', '<title>TalepAkış — canlı demo</title>')
-    .replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    ${meta}\n    ${description}`)
+    .replace(
+      '<meta property="og:title" content="TalepAkış — Türkçe servis talebi yönlendirme" />',
+      '<meta property="og:title" content="TalepAkış — canlı demo" />',
+    )
+    .replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    ${meta}`)
 }
 
 export function demoCspPlugin(apiUrl: string | undefined): Plugin {

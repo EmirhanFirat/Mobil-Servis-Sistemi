@@ -3,16 +3,19 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fakeDemoClient, makeResult, makeStatus, makeSummary } from '../demo-fixtures'
-import { ApiError } from '../lib/api'
+import { RUN_ID, makeDetail, makeList, makeRun, makeSample } from '../experiment-fixtures'
+import { ApiError, type ExperimentSource } from '../lib/api'
 import { storeDemoToken, type DemoClient } from '../lib/demo-api'
+import { runDate } from '../lib/experiments'
+import { createStaticSource } from '../lib/static-experiments'
 import { vocab } from '../test-utils'
 import DemoPage from './DemoPage'
 
 beforeEach(() => storeDemoToken(null))
 
-async function renderReady(client: DemoClient = fakeDemoClient()) {
+async function renderReady(client: DemoClient = fakeDemoClient(), experiments: ExperimentSource | null = null) {
   const user = userEvent.setup()
-  render(<DemoPage client={client} vocab={vocab} />)
+  render(<DemoPage client={client} vocab={vocab} experiments={experiments} />)
   await screen.findByTestId('wake-summary')
   return { user, client }
 }
@@ -45,16 +48,41 @@ describe('DemoPage: hazırlık ve açıklama', () => {
     expect(await screen.findByText(/Sunucu hazırlanıyor/)).toHaveTextContent('model çağrısı yapmaz')
     expect(submitButton()).toBeDisabled()
     expect(screen.getByText('Sunucu hazır olunca açılır.')).toBeInTheDocument()
+    // Pasif formda hazır örnekler de pasif: pasif alanları doldurmaz.
+    expect(screen.getByRole('button', { name: 'Lavabo akıtıyor' })).toBeDisabled()
     expect(client.decide).not.toHaveBeenCalled()
   })
 
-  it('demo kullanılamıyorsa nedeni gösterilir ve gönderme kapalıdır', async () => {
+  it('hazır olunca "Sunucu hazır" rozeti; ayrıntı rozetin içinde katlıdır', async () => {
+    await renderReady()
+
+    const badge = screen.getByTestId('wake-summary')
+    expect(badge.tagName).toBe('DETAILS')
+    expect(badge).not.toHaveAttribute('open')
+    expect(within(badge).getByText('Sunucu hazır')).toBeInTheDocument()
+    expect(badge).toHaveAttribute('title', expect.stringContaining('Jev çağrı süresi değildir'))
+  })
+
+  it('giriş bölümü projeyi ve üç adımı anlatır, ölçüm sonuçlarına bağlantı verir', async () => {
+    await renderReady()
+
+    const intro = screen.getByRole('region', { name: 'TalepAkış' })
+    expect(intro).toHaveTextContent('Türkçe servis taleplerini kategorize eden')
+    expect(intro).toHaveTextContent('React Native')
+    const steps = within(intro).getByRole('list', { name: 'Nasıl çalışır' })
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(intro).getByRole('link', { name: /Ölçüm sonuçları/ })).toHaveAttribute('href', '#/sonuclar')
+  })
+
+  it('demo kullanılamıyorsa nedeni nötr bilgi olarak gösterilir ve gönderme kapalıdır', async () => {
     const client = fakeDemoClient({
       status: vi.fn().mockResolvedValue(makeStatus({ enabled: false, reason: 'budget_exhausted' })),
     })
     await renderReady(client)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('bütçe doldu')
+    const notice = screen.getByText(/bütçe doldu/).closest('.notice')!
+    expect(notice).toHaveClass('notice-info')
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(submitButton()).toBeDisabled()
     expect(client.decide).not.toHaveBeenCalled()
   })
@@ -82,6 +110,87 @@ describe('DemoPage: hazırlık ve açıklama', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+/** Statik kaynak: s003 tartışmasız, s023 tartışmalı (kayıtlı örnekte gösterilmez). */
+function recordedSource(): ExperimentSource {
+  const s003 = makeSample()
+  s003.sample = {
+    ...s003.sample,
+    id: 's003',
+    title: 'lavabo akitiyor',
+    description: 'lavabodan surekli su akiyor, yer su oldu yardim edin',
+    location: 'C blok 1. kat tuvaletler',
+    disputed: null,
+  }
+  return createStaticSource({
+    list: makeList(),
+    details: { [RUN_ID]: makeDetail() },
+    samples: { [RUN_ID]: { s003, s023: makeSample() } },
+  })
+}
+
+const notConfigured = () =>
+  fakeDemoClient({ status: vi.fn().mockResolvedValue(makeStatus({ enabled: false, reason: 'not_configured' })) })
+
+describe('DemoPage: canlı deneme kapalı (not_configured)', () => {
+  it('kırmızı hata değil nötr bilgi; kayıtlı örnek kartı "Kayıtlı örnek · tarih" etiketiyle gelir', async () => {
+    const client = notConfigured()
+    await renderReady(client, recordedSource())
+
+    const card = await screen.findByRole('region', { name: 'Kayıtlı örnek' })
+    const notice = screen.getByText('Canlı Jev denemesi şu an kapalı.').closest('.notice')!
+    expect(notice).toHaveClass('notice-info')
+    expect(notice).toHaveTextContent('Aşağıda kayıtlı bir örnek kararı ve ölçüm sonuçlarını inceleyebilirsin.')
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(document.querySelector('.notice-error')).toBeNull()
+
+    expect(within(card).getByText(`Kayıtlı örnek · ${runDate(makeRun())}`)).toHaveClass('badge-recorded')
+    expect(card).toHaveTextContent('lavabo akitiyor')
+    expect(card).not.toHaveTextContent('Asansör') // tartışmalı etiketli örnek seçilmez
+    expect(card).toHaveTextContent('Gerçek Jev (jev-1.13.0)')
+    expect(card).toHaveTextContent('Diğer') // kategori
+    expect(card).toHaveTextContent('Yüksek') // öncelik
+    expect(card).toHaveTextContent('Eksik bilgi')
+    expect(card).toHaveTextContent('320 ms') // kayıtlı karar süresi
+    expect(card).toHaveTextContent('0,000038682 USD') // kayıtlı ücret
+    expect(card).toHaveTextContent('canlı istek değil')
+    expect(within(card).getByRole('link', { name: /Tüm ölçüm sonuçları/ })).toHaveAttribute('href', '#/sonuclar')
+    expect(within(card).queryByRole('button', { name: /Başka kayıtlı örnek/ })).toBeNull() // tek uygun örnek
+    expect(client.decide).not.toHaveBeenCalled()
+    expect(client.openSession).not.toHaveBeenCalled()
+  })
+
+  it('pasif gönderme düğmesinin yanında nedeni yazar; hazır örnek çipleri de pasiftir', async () => {
+    const { user } = await renderReady(notConfigured(), recordedSource())
+
+    expect(submitButton()).toBeDisabled()
+    expect(screen.getByText('Canlı deneme şu an kapalı')).toBeInTheDocument()
+    expect(submitButton()).toHaveAttribute('aria-describedby', 'submit-reason')
+    const chip = screen.getByRole('button', { name: 'Lavabo akıtıyor' })
+    expect(chip).toBeDisabled()
+    await user.click(chip)
+    expect(screen.getByLabelText(/^Başlık/)).toHaveValue('')
+  })
+
+  it('kayıtlı karar yoksa "Ölçüm sonuçları"na belirgin bir düğme konur (uydurma kart yok)', async () => {
+    await renderReady(notConfigured(), null)
+
+    const link = screen.getByRole('link', { name: /Ölçüm sonuçlarını incele/ })
+    expect(link).toHaveAttribute('href', '#/sonuclar')
+    expect(link).toHaveClass('btn-primary')
+    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
+    expect(screen.getByText(/Canlı Jev denemesi şu an kapalı/).closest('.notice')).toHaveTextContent(
+      'Kayıtlı ölçüm sonuçlarını inceleyebilirsin.',
+    )
+  })
+
+  it('canlı deneme açıkken kayıtlı örnek gösterilmez', async () => {
+    await renderReady(fakeDemoClient(), recordedSource())
+
+    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Lavabo akıtıyor' })).toBeEnabled()
   })
 })
 

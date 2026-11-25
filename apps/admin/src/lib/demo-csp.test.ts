@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { apiOrigin, buildDemoCsp, demoCspPlugin, injectDemoHead } from '../../csp'
@@ -70,6 +73,17 @@ describe('injectDemoHead', () => {
     expect(html).toContain('<title>TalepAkış — canlı demo</title>')
     expect(html).not.toContain('TalepAkış Yönetim')
     expect(html.indexOf('Content-Security-Policy')).toBeLessThan(html.indexOf('<title>'))
+  })
+
+  it('gerçek index.html: tek açıklama, og etiketleri; demo derlemesinde og:title demoya uyarlanır', () => {
+    const source = readFileSync(resolve(__dirname, '../../index.html'), 'utf-8')
+    const html = injectDemoHead(source, "default-src 'self'")
+
+    expect(source.match(/name="description"/g)).toHaveLength(1)
+    expect(source).toContain('property="og:description"')
+    expect(html.match(/name="description"/g)).toHaveLength(1)
+    expect(html).toContain('<meta property="og:title" content="TalepAkış — canlı demo" />')
+    expect(html).toContain('<title>TalepAkış — canlı demo</title>')
   })
 
   it('eklenti yalnızca derlemede çalışır ve index.html dönüştürür', () => {

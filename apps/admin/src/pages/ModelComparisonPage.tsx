@@ -33,6 +33,9 @@ import { useResource } from '../lib/use-resource'
 
 type Tab = 'karsilastirma' | 'ornekler' | 'paylasim'
 
+const ESTIMATE_NOTE =
+  '"1.000 talebe ölçeklenen TAHMİN" satırı ölçülmüş bir değer değildir: tamamlanan talep başına ölçülen ücretin 1.000 ile çarpımıdır ve küçük örneklemden kanıt sayılmaz. Bilinmeyen ücret veya eksik metrik sıfır olarak gösterilmez.'
+
 const TABS: { key: Tab; label: string }[] = [
   { key: 'karsilastirma', label: 'Karşılaştırma' },
   { key: 'ornekler', label: 'Örnek bazında inceleme' },
@@ -225,17 +228,12 @@ function ExportActions({
 function ComparisonTab({ detail }: { detail: ExperimentDetail }) {
   return (
     <div className="stack">
-      <Warnings detail={detail} />
+      <Warnings detail={detail} notes={[detail.notes.tokens, ESTIMATE_NOTE]} />
       <ComparisonTable detail={detail} />
-      <p className="muted small">{detail.notes.tokens}</p>
-      <p className="muted small">
-        &quot;1.000 talebe ölçeklenen TAHMİN&quot; satırı ölçülmüş bir değer değildir: tamamlanan talep başına ölçülen
-        ücretin 1.000 ile çarpımıdır ve küçük örneklemden kanıt sayılmaz. Bilinmeyen ücret veya eksik metrik sıfır
-        olarak gösterilmez.
-      </p>
       <div className="charts">
         <ChartSvg width={560} height={262} label="Tamamlanan talep başına ölçülen ücret">
           <BarChart
+            themed
             x={20}
             y={0}
             width={520}
@@ -247,6 +245,7 @@ function ComparisonTab({ detail }: { detail: ExperimentDetail }) {
         </ChartSvg>
         <ChartSvg width={600} height={262} label="Uçtan uca karar süresi">
           <PairedBarChart
+            themed
             x={20}
             y={0}
             width={560}

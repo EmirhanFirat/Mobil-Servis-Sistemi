@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,20 +10,31 @@ import DemoApp from './DemoApp'
 const experiments = {
   list: makeList(),
   details: { [RUN_ID]: makeDetail() },
-  samples: { [RUN_ID]: { s023: makeSample() } },
+  samples: {
+    [RUN_ID]: {
+      s023: makeSample(),
+      s003: { ...makeSample(), sample: { ...makeSample().sample, id: 's003', disputed: null } },
+    },
+  },
 }
 
 let calls: string[] = []
+let demoStatus = makeStatus()
+const scrollTo = vi.fn()
 
 beforeEach(() => {
   calls = []
+  demoStatus = makeStatus()
+  scrollTo.mockClear()
+  // jsdom window.scrollTo'yu uygulamaz; çağrıyı izlemek için yerine konur.
+  vi.stubGlobal('scrollTo', scrollTo)
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string) => {
       const url = String(input)
       calls.push(url)
       const body = url.endsWith('/demo/status')
-        ? makeStatus()
+        ? demoStatus
         : url.endsWith('experiments.json')
           ? experiments
           : url.endsWith('vocabulary.json')
@@ -89,10 +100,46 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
     await waitFor(() => expect(window.location.hash).toBe('#/'))
   })
 
-  it('alt bilgide verinin Jev sağlayıcısına gittiği ve silindiği yazar', async () => {
+  it('verinin Jev sağlayıcısına gittiği ve silindiği formun altında yazar; alt bilgi kısadır', async () => {
     open('/')
 
-    expect(await screen.findByText(/Jev API\s+sağlayıcısına gönderilir ve süre sonunda silinir/)).toBeInTheDocument()
+    expect(await screen.findByTestId('disclosure')).toHaveTextContent(
+      /Jev API sağlayıcısına gönderilir ve 72 saat sonra otomatik silinir/,
+    )
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Portföy demosu')
+  })
+
+  it('kaynak kod bağlantısı GitHub ikonuyla, erişilebilir adla gelir', async () => {
+    open('/')
+
+    const repo = await screen.findByRole('link', { name: 'Kaynak kod (GitHub)' })
+    expect(repo).toHaveAttribute('href', 'https://github.com/EmirhanFirat/Mobil-Servis-Sistemi')
+    expect(repo.querySelector('svg')).not.toBeNull()
+  })
+
+  it('sekme değişince sayfa en üstten açılır (HashRouter kaydırmayı korumaz)', async () => {
+    const user = open('/')
+    await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })
+    scrollTo.mockClear()
+
+    const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
+    await user.click(within(nav).getByRole('link', { name: 'Ölçüm sonuçları' }))
+    expect(await screen.findByRole('heading', { name: 'Ölçüm sonuçları' })).toBeInTheDocument()
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
+
+    scrollTo.mockClear()
+    await user.click(within(nav).getByRole('link', { name: 'Jev ile dene' }))
+    await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
+  })
+
+  it('demo kapalıyken (not_configured) statik dosyadaki kayıtlı örnek kartı gösterilir', async () => {
+    demoStatus = makeStatus({ enabled: false, reason: 'not_configured' })
+    open('/')
+
+    const card = await screen.findByRole('region', { name: 'Kayıtlı örnek' })
+    expect(card).toHaveTextContent('Kayıtlı örnek ·')
+    expect(calls.some((url) => url.includes('/demo/decisions') || url.includes('/demo/session'))).toBe(false)
   })
 
   it('statik sonuç dosyası yoksa açık hata ve yeniden dene (uydurma sonuç yok)', async () => {

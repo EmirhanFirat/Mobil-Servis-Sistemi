@@ -202,16 +202,46 @@ describe('karşılaştırma ekranı', () => {
     expect(screen.getByText(/Tartışmalı etiketli örnek: s023/)).toBeInTheDocument()
   })
 
-  it('uyarı tonu: bilgilendirme (küçük örneklem, eski sürüm) ile dikkat gerektiren (tartışmalı etiket) ayrışır', async () => {
+  it('okuma notları tek katlanabilir bölümde, hata rengi taşımaz; ölçümü bozan uyarı kırmızı ve görünür kalır', async () => {
+    const detail = makeDetail()
+    detail.warnings = [
+      ...detail.warnings,
+      { code: 'failed_decisions', text: 'Bazı kararlar üretilemedi: 1 örnek.' },
+    ]
+    renderPage(experimentApi({ getExperiment: vi.fn().mockResolvedValue(detail) }))
+
+    const small = await screen.findByText(/Küçük örneklem \(5 örnek\)/)
+    const notes = small.closest('details')!
+    expect(notes).toHaveClass('reading-notes')
+    expect(notes).not.toHaveAttribute('open')
+    expect(within(notes).getByText(/Bu sonuçları okurken/)).toHaveTextContent('küçük örneklem: genel sonuç çıkarılamaz')
+    expect(within(notes).getByText(/Tartışmalı etiketli örnek: s023/)).toBeInTheDocument()
+    expect(within(notes).getByText(/tokenizer/)).toBeInTheDocument()
+    expect(within(notes).getByText(/1.000 talebe ölçeklenen TAHMİN/)).toBeInTheDocument()
+    expect(notes.querySelector('.notice-error')).toBeNull()
+
+    const failed = screen.getByText('Bazı kararlar üretilemedi: 1 örnek.')
+    expect(failed.closest('details')).toBeNull()
+    expect(failed).toHaveClass('notice-error')
+    expect(failed).toHaveAttribute('role', 'alert')
+  })
+
+  it('ekrandaki grafikler tema sınıfı taşır (koyu temada okunur); PNG kartı sınıfsız kalır', async () => {
     renderPage(experimentApi())
+    await screen.findByRole('table', { name: 'Strateji karşılaştırması' })
 
-    const small = (await screen.findByText(/Küçük örneklem \(5 örnek\)/)).closest('.notice')
-    const disputed = screen.getByText(/Tartışmalı etiketli örnek: s023/).closest('.notice')
+    const chart = screen.getAllByRole('img', { name: 'Tamamlanan talep başına ölçülen ücret' })[0]
+    expect(chart.closest('.charts')).not.toBeNull()
+    expect(chart.querySelector('text.chart-ink')).not.toBeNull()
+    expect(chart.querySelector('line.chart-grid')).not.toBeNull()
+  })
 
-    expect(small).toHaveClass('notice-info')
-    expect(small).toHaveAttribute('role', 'status')
-    expect(disputed).toHaveClass('notice-error')
-    expect(disputed).toHaveAttribute('role', 'alert')
+  it('karşılaştırma tablosu yatay kaydırma sarmalayıcısında ve kaydırma ipucuyla gelir', async () => {
+    renderPage(experimentApi())
+    const table = await screen.findByRole('table', { name: 'Strateji karşılaştırması' })
+
+    expect(table.parentElement).toHaveClass('table-wrap', 'compare-wrap')
+    expect(screen.getByText(/Tablo yana kaydırılır/)).toHaveClass('scroll-hint')
   })
 
   it('ücret ve gecikme ayrı grafiklerdir', async () => {
