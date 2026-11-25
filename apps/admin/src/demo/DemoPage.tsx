@@ -88,10 +88,19 @@ function engineLine(status: DemoStatus | null): string | null {
  * gösterilir. Sayfa açılınca yalnızca ücretsiz hazırlık isteği gider; karar isteği yalnızca
  * "Talebi gönder" ile gider.
  */
-export default function DemoPage({ client, vocab }: { client: DemoClient; vocab: Vocabulary | null }) {
+export default function DemoPage({
+  client,
+  vocab,
+  initialTitle = '',
+}: {
+  client: DemoClient
+  vocab: Vocabulary | null
+  /** Tanıtım sayfasındaki hızlı başlangıç kutusuna yazılan başlık (isteğe bağlı). */
+  initialTitle?: string
+}) {
   const { state: wake, retry } = useWakeUp(client)
   const decision = useDemoDecision(client)
-  const [input, setInput] = useState<DemoDecisionInput>(EMPTY)
+  const [input, setInput] = useState<DemoDecisionInput>({ ...EMPTY, title: initialTitle })
   const [topic, setTopic] = useState<Topic | null>(null)
   const [submittedTopic, setSubmittedTopic] = useState<Topic | null>(null)
   const [touched, setTouched] = useState(false)

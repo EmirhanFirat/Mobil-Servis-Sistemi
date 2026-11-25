@@ -58,30 +58,59 @@ function open(path: string) {
 }
 
 describe('DemoApp (herkese açık demo derlemesi)', () => {
-  it('yalnızca demo ekranlarını gösterir: yönetici/oturum ekranları ve uçları YOK', async () => {
+  it('tanıtım sayfasıyla açılır: lacivert menü, yönetici/oturum ekranları ve uçları YOK', async () => {
     open('/')
 
-    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Arıza bildirimi/ })).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
     expect(
       within(nav)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Talep oluştur', 'Hakkında', 'Sonuçlar'])
+    ).toEqual(['Tanıtım', 'Talep oluştur', 'Hakkında', 'Sonuçlar', 'Kaynak kod (GitHub)'])
+    expect(screen.getByRole('link', { name: 'Talep bildir' })).toHaveAttribute('href', '#/talep')
     for (const adminOnly of ['Kullanıcılar', 'Ekipler', 'Talepler', 'Çıkış yap', 'Giriş yap']) {
       expect(screen.queryByText(adminOnly)).toBeNull()
     }
-    await screen.findByTestId('wake-summary')
     expect(calls.some((url) => url.includes('/admin/') || url.includes('/auth/'))).toBe(false)
   })
 
-  it('açılışta tek bir hazırlık isteği atılır; karar/oturum ucu çağrılmaz', async () => {
+  it('tanıtım açılışta sunucuyu yalnızca ücretsiz hazırlık isteğiyle uyandırır; karar/oturum yok', async () => {
     open('/')
+
+    await waitFor(() => expect(calls.some((url) => url.endsWith('/demo/status'))).toBe(true))
+    const demoCalls = calls.filter((url) => url.includes('/demo/'))
+    expect(demoCalls).toEqual([expect.stringMatching(/\/demo\/status$/)])
+  })
+
+  it('tanıtımdaki görsel yerel dosyadan gelir ve açıklayıcı alt metni vardır', async () => {
+    open('/')
+
+    const image = await screen.findByRole('img', { name: /bakım görevlisi/ })
+    expect(image.getAttribute('src')).toMatch(/anasayfa-1400/)
+    expect(image.getAttribute('src')).not.toMatch(/^https?:/)
+  })
+
+  it('hızlı başlangıç kutusuna yazılan cümle talep formunun başlığına taşınır', async () => {
+    const user = open('/')
+
+    await user.type(await screen.findByLabelText('Sorunu bir cümleyle yaz'), 'Koridor lambası yanmıyor')
+    await user.click(within(screen.getByRole('form', { name: 'Hızlı başlangıç' })).getByRole('button'))
+
+    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Ne oldu\?/)).toHaveValue('Koridor lambası yanmıyor')
+    expect(window.location.hash).toBe('#/talep')
+    expect(calls.some((url) => url.includes('/demo/decisions'))).toBe(false) // gönderilmedi, yalnızca dolduruldu
+  })
+
+  it('"Talep oluştur" sayfasında tek hazırlık isteği atılır; karar/oturum ucu çağrılmaz', async () => {
+    open('/talep')
     await screen.findByTestId('wake-summary')
 
     const demoCalls = calls.filter((url) => url.includes('/demo/'))
     expect(demoCalls).toHaveLength(1)
     expect(demoCalls[0]).toMatch(/\/demo\/status$/)
+    expect(screen.queryByRole('link', { name: 'Talep bildir' })).toBeNull() // zaten formdayız
   })
 
   it('"Ölçüm sonuçları" statik dosyadan açılır; API (uyanma) beklenmez, API çağrısı yapılmaz', async () => {
@@ -94,37 +123,59 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
     expect(calls.some((url) => url.includes('/demo/') || url.includes('127.0.0.1:8000'))).toBe(false)
     expect(calls.every((url) => url.includes('demo-data/'))).toBe(true)
 
-    await user.click(screen.getByRole('link', { name: 'Talep oluştur' }))
+    const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
+    await user.click(within(nav).getByRole('link', { name: 'Talep oluştur' }))
     expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
   })
 
-  it('bilinmeyen adres ana demo sayfasına yönlenir', async () => {
+  it('bilinmeyen adres tanıtım sayfasına yönlenir', async () => {
     open('/talepler/123')
 
-    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Arıza bildirimi/ })).toBeInTheDocument()
     await waitFor(() => expect(window.location.hash).toBe('#/'))
   })
 
-  it('verinin nereye gittiği ve silindiği formun altında yazar; alt bilgi kısadır', async () => {
-    open('/')
+  it('verinin nereye gittiği ve silindiği formun altında yazar; alt bilgide demo notu ve 112 var', async () => {
+    open('/talep')
 
     const disclosure = await screen.findByTestId('disclosure')
     expect(disclosure).toHaveTextContent('Jev API sağlayıcısına gönderilir')
     expect(disclosure).toHaveTextContent('72 saat sonra otomatik silinir')
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Portföy demosu')
+    const footer = screen.getByRole('contentinfo')
+    expect(footer).toHaveTextContent('Portföy demosu')
+    expect(footer).toHaveTextContent('Talepler gerçek bir ekibe iletilmez.')
+    expect(footer).toHaveTextContent('112')
   })
 
   it('kaynak kod bağlantısı GitHub ikonuyla, erişilebilir adla gelir', async () => {
     open('/')
 
-    const repo = await screen.findByRole('link', { name: 'Kaynak kod (GitHub)' })
-    expect(repo).toHaveAttribute('href', 'https://github.com/EmirhanFirat/Mobil-Servis-Sistemi')
-    expect(repo.querySelector('svg')).not.toBeNull()
+    const links = await screen.findAllByRole('link', { name: 'Kaynak kod (GitHub)' })
+    for (const link of links) {
+      expect(link).toHaveAttribute('href', 'https://github.com/EmirhanFirat/Mobil-Servis-Sistemi')
+    }
+    expect(links.some((link) => link.querySelector('svg') !== null)).toBe(true)
+  })
+
+  it('mobil menü düğmesi menüyü açar; sayfa değişince menü kapanır', async () => {
+    const user = open('/')
+    const toggle = await screen.findByRole('button', { name: 'Menüyü aç' })
+    const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
+    expect(toggle).toHaveAttribute('aria-controls', nav.id)
+
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: 'Menüyü kapat' })).toHaveAttribute('aria-expanded', 'true')
+    expect(nav).toHaveClass('open')
+
+    await user.click(within(nav).getByRole('link', { name: 'Hakkında' }))
+    expect(await screen.findByRole('heading', { name: 'TalepAkış hakkında' })).toBeInTheDocument()
+    expect(nav).not.toHaveClass('open')
+    expect(screen.getByRole('button', { name: 'Menüyü aç' })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('sekme değişince sayfa en üstten açılır (HashRouter kaydırmayı korumaz)', async () => {
     const user = open('/')
-    await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })
+    await screen.findByRole('heading', { level: 1, name: /Arıza bildirimi/ })
     scrollTo.mockClear()
 
     const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
@@ -147,9 +198,9 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
     expect(calls.some((url) => url.includes('/demo/'))).toBe(false)
   })
 
-  it('ana sayfa şikâyet portalıdır: kayıtlı örnek ve araştırma anlatımı orada yer almaz', async () => {
+  it('talep sayfası şikâyet formudur: kayıtlı örnek orada yer almaz', async () => {
     demoStatus = makeStatus({ enabled: false, reason: 'not_configured', accepting: true, engine: 'rules' })
-    open('/')
+    open('/talep')
 
     await screen.findByTestId('wake-summary')
     expect(screen.getByRole('form', { name: 'Talep formu' })).toBeInTheDocument()
