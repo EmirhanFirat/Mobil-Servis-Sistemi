@@ -38,14 +38,14 @@ def exists(db: Session, model, row_id) -> bool:
     return bool(db.scalar(select(func.count()).select_from(model).where(model.id == row_id)))
 
 
-def make_visitor(db: Session, name: str, age_hours: float) -> User:
+def make_visitor(db: Session, name: str, age_hours: float, now: datetime = NOW) -> User:
     user = User(
         username=name,
         display_name="Ziyaretçi",
         password_hash="!demo",
         role=Role.REQUESTER,
         is_demo=True,
-        created_at=NOW - timedelta(hours=age_hours),
+        created_at=now - timedelta(hours=age_hours),
     )
     db.add(user)
     db.commit()
@@ -174,8 +174,10 @@ class TestPurge:
     def test_cli_purge_demo_komutu(self, db, db_engine, monkeypatch, capsys):
         monkeypatch.setattr(manage, "get_engine", lambda: db_engine)
         monkeypatch.setattr(manage, "get_settings", lambda: Settings(_env_file=None))
-        make_visitor(db, "ziyaretci-eski", age_hours=24 * 30)
-        make_visitor(db, "ziyaretci-yeni", age_hours=1)
+        # Komut gerçek saati kullanır: hesap yaşları da gerçek saate göre (sabit NOW'a göre değil).
+        now = datetime.now(UTC)
+        make_visitor(db, "ziyaretci-eski", age_hours=24 * 30, now=now)
+        make_visitor(db, "ziyaretci-yeni", age_hours=1, now=now)
 
         assert manage.main(["purge-demo"]) == 0
 
