@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     demo_max_decisions_per_ip_hour: int = Field(default=20, ge=1, le=1000)
     # Ziyaretçi hesabı ve talepleri bu süre sonra silinir (yalnızca is_demo hesapları).
     demo_retention_hours: int = Field(default=72, ge=1, le=720)
+    # Jev kullanılamıyorsa (anahtar/ücretli çağrı izni ya da bütçe kapsamı yok, bütçe doldu) talep
+    # yine kaydedilir ve ÜCRETSİZ kural tabanlı motorla karşılanır; Jev'e istek gitmez (D37).
+    # `demo_enabled=false` bunu da kapatır (acil durdurma).
+    demo_rule_fallback: bool = True
 
     # Ücretli model çağrıları VARSAYILAN OLARAK KAPALIDIR. Açmadan gerçek Jev/LLM çağrısı yapılamaz
     # (bkz. app/decision/factory.py). Anahtarlar yalnızca burada, ortam değişkeninden okunur;

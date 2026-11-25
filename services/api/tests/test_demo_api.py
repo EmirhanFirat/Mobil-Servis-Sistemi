@@ -171,6 +171,7 @@ class TestStatus:
         assert body["api_ready"] is True and body["database_ready"] is True
         assert isinstance(body["database_ms"], int) and body["database_ms"] >= 0
         assert body["enabled"] is True and body["reason"] is None
+        assert body["accepting"] is True and body["engine"] == "jev"
         assert (body["provider"], body["model"], body["is_mock"]) == ("jev", "jev-1.13.0", False)
         assert body["limits"]["decisions_per_session"] == 5
         assert body["retention_hours"] == 72
@@ -188,6 +189,7 @@ class TestStatus:
         body = api.get("/demo/status").json()
 
         assert body["enabled"] is False and body["reason"] == "disabled"
+        assert body["accepting"] is False and body["engine"] is None  # acil durdurma: talep yok
 
     def test_ucretli_cagri_izni_veya_anahtar_yoksa_yapilandirilmamis(self, api, budget):
         reconfigure(api, paid_model_calls_enabled=False)
@@ -200,6 +202,8 @@ class TestStatus:
         body = api.get("/demo/status").json()  # `budget` fixture'ı kullanılmadı
 
         assert body["enabled"] is False and body["reason"] == "not_configured"
+        # Jev yok ama talep alınır: ücretsiz kural tabanlı motor karşılar.
+        assert body["accepting"] is True and body["engine"] == "rules"
 
     def test_butce_dolmussa_butce_doldu(self, api, budget, db_engine):
         with fresh(db_engine) as s:
@@ -772,7 +776,21 @@ class TestFailureModes:
 
         response = decide(api, headers)
 
-        assert response.status_code == 503 and jev.requests == []
+        # Talep kaybolmaz: kural tabanlı motor karşılar; Jev'e istek ve ücret YOK.
+        assert response.status_code == 200 and response.json()["engine"] == "rules"
+        assert jev.requests == [] and rows(db_engine, ModelCall) == []
+        assert budget_entries(db_engine) == []
+
+    def test_kural_geri_donusu_kapaliysa_jev_yokken_eskisi_gibi_talep_alinmaz(
+        self, api, jev, budget, db_engine
+    ):
+        headers = open_session(api)
+        reconfigure(api, paid_model_calls_enabled=False, demo_rule_fallback=False)
+
+        response = decide(api, headers)
+
+        assert response.status_code == 503 and response.json()["code"] == "demo_unavailable"
+        assert rows(db_engine, Ticket) == [] and jev.requests == []
 
     def test_surec_cagri_sirasinda_olurse_belirsiz_kapatilir_ve_yeniden_gonderilmez(
         self, api, jev, budget, db_engine
@@ -864,6 +882,91 @@ class TestFailureModes:
 
 
 # --- Eşzamanlı çağrı sınırı ---
+
+
+class TestRuleFallback:
+    """Jev kullanılamadığında talep ücretsiz kural tabanlı motorla karşılanır (D37)."""
+
+    def test_jev_yapilandirilmamisken_talep_kaydedilir_ve_kurallarla_ekibe_yonlendirilir(
+        self, api, jev, db_engine
+    ):
+        # `budget` yok: Jev "not_configured".
+        response = decide(api, open_session(api))
+
+        body = response.json()
+        assert response.status_code == 200, response.text
+        assert body["state"] == "completed" and body["engine"] == "rules"
+        assert "kural tabanlı" in body["message"] and "ücretli çağrı yapılmadı" in body["message"]
+        assert body["decision"]["provider"] == "rule_based" and body["decision"]["is_mock"] is False
+        assert body["decision"]["category"] == "plumbing"
+        assert body["team"] == "plumbing" and body["ticket_status"] == "assigned"
+        assert body["usage"] is None  # model çağrısı yok: kullanım/ücret uydurulmaz
+        assert jev.requests == []
+        assert rows(db_engine, ModelCall) == [] and budget_entries(db_engine) == []
+        (job,) = rows(db_engine, DecisionJob)
+        assert job.strategy == "rule_based" and job.status is JobStatus.SUCCEEDED
+
+    def test_butce_dolunca_yeni_talepler_kurallarla_karsilanir(self, api, jev, budget, db_engine):
+        headers = open_session(api)
+        with fresh(db_engine) as s:
+            s.query(Budget).update({"cap_usd": D("0.0004")})  # MIN_CALL_RESERVE'den az
+            s.commit()
+
+        body = decide(api, headers).json()
+
+        assert body["engine"] == "rules" and body["state"] == "completed"
+        assert jev.requests == []
+
+    def test_jev_acikken_jev_karsilar(self, api, jev, budget):
+        body = decide(api, open_session(api)).json()
+
+        assert body["engine"] == "jev" and len(jev.requests) == 1
+
+    def test_kurallarla_karsilanan_is_esanli_cagri_sinirina_tabi_degil(
+        self, api, jev, db_engine, monkeypatch
+    ):
+        seen: list[bool] = []
+        original = demo._claim
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs["limited"])
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(demo, "_claim", spy)
+
+        body = decide(api, open_session(api)).json()
+
+        assert body["engine"] == "rules" and seen == [False]
+
+    def test_ayni_metin_tekrar_gelince_yeni_talep_acilmaz(self, api, jev, db_engine):
+        headers = open_session(api)
+
+        first = decide(api, headers).json()
+        second = decide(api, headers).json()
+
+        assert first["ticket_id"] == second["ticket_id"]
+        assert len(rows(db_engine, Ticket)) == 1
+
+    def test_oturum_basina_sinir_kurallarda_da_gecerli(self, api, jev, db_engine):
+        reconfigure(api, demo_max_decisions_per_session=1, paid_model_calls_enabled=False)
+        headers = open_session(api)
+
+        assert decide(api, headers).status_code == 200
+        assert decide(api, headers, payload(2)).status_code == 429
+
+    def test_kategori_belirsizse_ekip_yok_insan_incelemesi(self, api, jev, db_engine):
+        body = decide(
+            api,
+            open_session(api),
+            {
+                "title": "Bir sorun var",
+                "description": "Ne olduğunu tam bilmiyorum.",
+                "location": "Kampüs",
+            },
+        ).json()
+
+        assert body["engine"] == "rules"
+        assert body["ticket_status"] == "needs_review" and body["team"] is None
 
 
 class TestConcurrencyLimit:

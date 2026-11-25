@@ -238,6 +238,14 @@ Bilinen sınır: GitHub eski nesneleri bir süre doğrudan SHA ile sunabilir; ye
 
 **Yapılmayanlar ve nedenleri.** Ajana otomatik yayın yetkisi (istenmedi; yanlış commit doğrudan canlıya çıkardı); LLM'li zamanlanmış rapor (her çalışmada model ücreti; betik çıktısı yeterli); Hermes'e özgü ayrı kural dosyası (`.hermes.md` `AGENTS.md`'nin yerine geçer ve kurallar iki yerde çatallanırdı).
 
+## D37 — Demo şikâyet portalı: Jev kullanılamazken talepler kural tabanlı motorla karşılanır (2026-11-25)
+
+**Bağlam.** Herkese açık demo, ziyaretçiye "yapay zekâyı dene" ekranı yerine gerçek bir kampüs şikâyet/arıza portalı olarak açılmalı (kullanıcı isteği). Jev anahtarı/bütçesi yokken `POST /demo/decisions` 503 döndürüyordu; form pasif kalıyor, ziyaretçi talep gönderemiyordu. Sahte "talebin alındı" fişi göstermek "hiçbir sonuç uydurulmaz" ilkesine aykırıdır.
+
+**Karar (kullanıcı seçimi).** Jev yalnızca yapılandırılmadığı (`not_configured`) veya bütçe dolduğu (`budget_exhausted`) için kullanılamıyorsa talep yine kaydedilir ve işi ücretsiz `rule_based` stratejisiyle, aynı karar hattında (`worker.run_claimed`) çalışır: Jev'e istek, model çağrısı kaydı ve bütçe harcaması yoktur; kategori/öncelik/ekip ataması mevcut deterministik kurallarla yapılır. `TALEPAKIS_DEMO_RULE_FALLBACK` (varsayılan açık) bunu kapatır; `demo_enabled=false` acil durdurma olarak her şeyi kapatmaya devam eder. Sözleşme: `DemoStatus.accepting`/`engine` ("jev" | "rules"), `DemoDecisionResult.engine`/`team`. `enabled`/`reason` anlamı değişmedi (Jev kullanılabilir mi). Arayüz motoru her zaman açıkça yazar; kural tabanlı karşılama "yapay zekâ" diye sunulmaz. Kural işleri eşzamanlı Jev çağrısı sınırına tabi değildir; oturum, günlük ve IP sınırları geçerlidir. Jev açıldığında (6.1) yeni talepler kendiliğinden Jev'e gider.
+
+**Yapılmayanlar.** Jev başarısız olunca kurallara sessiz geçiş (D-ilkesi: başarısızlık görünür kalır, talep insana verilir); kullanıcının seçtiği konuyu modele girdi olarak vermek (karar yalnızca metinden; seçim arayüzde karşılaştırma için gösterilir).
+
 ## Açık karar — D7: `httpx` ve `httpx2`
 
 Starlette'in test istemcisi `httpx`'i artık kullanımdan kalkmış sayıyor ve `httpx2` öneriyor (Starlette kaynağı önce `httpx2`'yi içe aktarıyor; PyPI'da paket Pydantic gözetiminde, sürüm 2.13.1). Şimdilik `httpx==0.28.1` kilitli; testler geçiyor, yalnızca bir kullanımdan kalkma uyarısı görünüyor. `httpx2`'ye geçiş kullanıcı onayına bırakıldı: `requirements-dev.in` içinde `httpx` → `httpx2` ve `pip-compile` yeterli.

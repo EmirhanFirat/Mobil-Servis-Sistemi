@@ -44,6 +44,7 @@ from app.decision.mock import MockProvider
 from app.decision.pg_budget import PgBudgetGuard
 from app.decision.pricing import MOCK_JEV
 from app.decision.retry import RetryPolicy
+from app.decision.rule_based import RuleBasedStrategy
 from app.decision.strategies import ProviderStrategy
 from app.domain.decision_jobs import JobOutcome, JobStatus
 from app.domain.vocabulary import Role
@@ -58,6 +59,7 @@ from app.schemas_demo import (
     DemoDecisionRequest,
     DemoDecisionResult,
     DemoDecisionSummary,
+    DemoEngine,
     DemoJudgment,
     DemoLimits,
     DemoState,
@@ -71,6 +73,9 @@ from app.services import tickets as ticket_service
 
 # Demo işinin strateji adı: yalnızca jev_only (Anthropic ve hibrit canlı demoda YOKTUR).
 DEMO_STRATEGY = "jev_only"
+# Jev kullanılamadığında talebi karşılayan ücretsiz motor (model çağrısı yok, bütçe harcamaz).
+RULE_STRATEGY = "rule_based"
+ENGINE_OF: dict[str, DemoEngine] = {DEMO_STRATEGY: "jev", RULE_STRATEGY: "rules"}
 # Geçerli bir Argon2 özeti değildir: parola ile giriş HİÇBİR koşulda doğrulanamaz. Ziyaretçi
 # yalnızca oturum açıldığında verilen kısa ömürlü belirteçle erişir.
 NO_PASSWORD = "!demo"
@@ -159,6 +164,17 @@ def availability(db: Session, settings: Settings) -> Availability:
     return Availability(True, None, "jev", settings.jev_model, False)
 
 
+def intake_strategy(state: Availability, settings: Settings) -> str | None:
+    """Yeni talebi hangi strateji karşılar? Jev kullanılabiliyorsa jev_only. Jev yalnızca
+    yapılandırılmadığı veya bütçe dolduğu için kullanılamıyorsa (ve geri dönüş açıksa) ücretsiz
+    kural tabanlı motor. Demo kapatılmışsa (`disabled`) hiç talep alınmaz: None."""
+    if state.available:
+        return DEMO_STRATEGY
+    if settings.demo_rule_fallback and state.reason in ("not_configured", "budget_exhausted"):
+        return RULE_STRATEGY
+    return None
+
+
 def limits(settings: Settings) -> DemoLimits:
     return DemoLimits(
         title_max=TITLE_MAX,
@@ -177,11 +193,14 @@ def probe_status(db: Session, settings: Settings) -> DemoStatus:
     db.execute(text("select 1"))
     database_ms = round((time.perf_counter() - started) * 1000)
     state = availability(db, settings)
+    strategy = intake_strategy(state, settings)
     return DemoStatus(
         database_ready=True,
         database_ms=database_ms,
         enabled=state.available,
         reason=state.reason,  # type: ignore[arg-type]
+        accepting=strategy is not None,
+        engine=ENGINE_OF[strategy] if strategy else None,
         provider=state.provider,
         model=state.model,
         is_mock=state.is_mock,
@@ -205,8 +224,7 @@ def create_session(
     """Yeni ziyaretçi: parolasız, REQUESTER rollü, kısa ömürlü belirteçli ayrı bir kullanıcı. Her
     ziyaretçi yalnızca kendi taleplerini görür (mevcut yetkilendirme kuralları)."""
     now = now or _utcnow()
-    state = availability(db, settings)
-    if not state.available:
+    if intake_strategy(availability(db, settings), settings) is None:
         raise AppError(503, "demo_unavailable", "Canlı demo şu anda kullanılamıyor.")
     purge_expired(db, settings, now)
 
@@ -300,8 +318,8 @@ def register_request(
     if existing is not None:
         return existing.ticket_id, False
 
-    state = availability(db, settings)
-    if not state.available:
+    strategy = intake_strategy(availability(db, settings), settings)
+    if strategy is None:
         raise AppError(503, "demo_unavailable", "Canlı demo şu anda kullanılamıyor.")
     if _count_requests(db, DemoRequest.user_id == visitor.id) >= (
         settings.demo_max_decisions_per_session
@@ -338,7 +356,7 @@ def register_request(
         db,
         visitor,
         TicketCreate(title=data.title, description=data.description, location=data.location),
-        decision_strategy=DEMO_STRATEGY,
+        decision_strategy=strategy,
         decision_max_attempts=1,  # tek deneme: yeniden deneme yok
         commit=False,
     )
@@ -412,10 +430,16 @@ def _worker_id() -> str:
 
 
 def _claim(
-    session_factory: Callable[[], Session], job_id: UUID, settings: Settings, now: datetime
+    session_factory: Callable[[], Session],
+    job_id: UUID,
+    settings: Settings,
+    now: datetime,
+    *,
+    limited: bool = True,
 ) -> decisions.JobClaim | str | None:
     """İşi ATOMİK alır: yalnızca `pending` iş alınır (ikinci istek None görür). Eşzamanlı çağrı
-    sınırı aşılmışsa "busy" döner (iş `pending` kalır, kaybolmaz)."""
+    sınırı aşılmışsa "busy" döner (iş `pending` kalır, kaybolmaz). Kural tabanlı iş dış çağrı
+    yapmadığı için sınıra tabi değildir (`limited=False`)."""
     lease = timedelta(seconds=settings.demo_jev_timeout_s * 2 + 15)
     with session_factory() as db:
         # Sınır kontrolü ile alma, danışma kilidiyle sıraya sokulur: iki istek aynı anda
@@ -430,7 +454,7 @@ def _claim(
                 DecisionJob.locked_until > now,
             )
         )
-        if (running or 0) >= settings.demo_max_concurrent_calls:
+        if limited and (running or 0) >= settings.demo_max_concurrent_calls:
             db.rollback()
             return "busy"
         job = db.scalar(select(DecisionJob).where(DecisionJob.id == job_id).with_for_update())
@@ -503,8 +527,9 @@ def run_if_pending(
         if job is None or job.status is not JobStatus.PENDING:
             return "not_pending"
         job_id = job.id
+        rules = job.strategy == RULE_STRATEGY
 
-    claim = _claim(session_factory, job_id, settings, now)
+    claim = _claim(session_factory, job_id, settings, now, limited=not rules)
     if claim == "busy":
         return "busy"
     if claim is None:
@@ -513,8 +538,11 @@ def run_if_pending(
     worker.run_claimed(
         session_factory,
         claim,
-        build_strategy=lambda _name: make_strategy(
-            settings, session_factory, claim.job_id, provider_factory
+        # Kural tabanlı iş: ücretsiz, dış çağrı yok. Jev işi: tek deneme + bütçe koruması.
+        build_strategy=lambda name: (
+            RuleBasedStrategy()
+            if name == RULE_STRATEGY
+            else make_strategy(settings, session_factory, claim.job_id, provider_factory)
         ),
         clock=clock,
         unexpected_retry_delay=lambda _attempt: None,  # tek deneme: yeniden kuyruğa alınmaz
@@ -591,6 +619,15 @@ _MESSAGES: dict[str, str] = {
         "Demo'nun ayrılan bütçesi doldu; istek Jev'e gönderilmedi. Talebin kaydedildi ve insan "
         "incelemesine bırakıldı."
     ),
+}
+
+# Kural tabanlı motorla karşılanan talepler için (Jev'e hiç istek gitmez).
+_RULE_MESSAGES: dict[str, str] = {
+    "completed": (
+        "Talebin kural tabanlı ön değerlendirmeyle karşılandı. Yapay zekâ (Jev) şu an kapalı; "
+        "ücretli çağrı yapılmadı."
+    ),
+    "failed": "Ön değerlendirme yapılamadı. Talebin kaydedildi ve insan incelemesine bırakıldı.",
 }
 
 
@@ -670,15 +707,21 @@ def result_for(
             )
         )
     used = _count_requests(db, DemoRequest.user_id == visitor.id)
+    engine = ENGINE_OF.get(job.strategy) if job is not None else None
+    message = _MESSAGES[state]
+    if engine == "rules":
+        message = _RULE_MESSAGES.get(state, message)
     return DemoDecisionResult(
         ticket_id=ticket.id,
         ticket_number=ticket.number,
         state=state,
-        message=_MESSAGES[state],
+        message=message,
         title=ticket.title,
         description=ticket.description,
         location=ticket.location,
         ticket_status=ticket.status.value,
+        team=ticket.team.code if ticket.team is not None else None,
+        engine=engine,
         created_at=ticket.created_at,
         decision=_decision_info(record, calls) if record is not None else None,
         usage=_usage(calls),

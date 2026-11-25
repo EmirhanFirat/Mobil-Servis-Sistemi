@@ -10,13 +10,21 @@ export interface DemoLimits {
 
 export type DemoUnavailableReason = 'disabled' | 'not_configured' | 'budget_exhausted'
 
+/** Talebi karşılayan motor: "jev" (gerçek model, ücretli) veya "rules" (kural tabanlı, ücretsiz). */
+export type DemoEngine = 'jev' | 'rules'
+
 export interface DemoStatus {
   api_ready: boolean
   database_ready: boolean
   /** Veritabanının uyanma/sorgu süresi (ms); yalnızca hazırlık isteğinde ölçülür. */
   database_ms: number | null
+  /** Jev ile karar üretilebilir mi. */
   enabled: boolean
+  /** Jev neden kullanılamıyor. */
   reason: DemoUnavailableReason | null
+  /** Talep kabul ediliyor mu; Jev kapalıyken kural tabanlı motor karşılayabilir (D37). */
+  accepting: boolean
+  engine: DemoEngine | null
   provider: string | null
   model: string | null
   is_mock: boolean
@@ -83,6 +91,10 @@ export interface DemoDecisionResult {
   description: string
   location: string
   ticket_status: string
+  /** Yönlendirilen ekibin kodu (deterministik atama); yoksa null (insan incelemesi). */
+  team: string | null
+  /** Bu talebi karşılayan motor; iş yoksa null. */
+  engine: DemoEngine | null
   created_at: string
   decision: DemoDecisionInfo | null
   usage: DemoUsage | null

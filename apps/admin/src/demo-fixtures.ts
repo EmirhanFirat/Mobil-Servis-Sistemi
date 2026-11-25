@@ -14,6 +14,8 @@ export function makeStatus(overrides: Partial<DemoStatus> = {}): DemoStatus {
     database_ms: 120,
     enabled: true,
     reason: null,
+    accepting: true,
+    engine: 'jev',
     provider: 'jev',
     model: 'jev-1.13.0',
     is_mock: false,
@@ -43,6 +45,8 @@ export function makeResult(overrides: Partial<DemoDecisionResult> = {}): DemoDec
     description: 'B blok ikinci kattaki ortak lavabo akıtıyor, su koridora yayılıyor.',
     location: 'B Blok, 2. kat',
     ticket_status: 'assigned',
+    team: 'plumbing',
+    engine: 'jev',
     created_at: '2026-10-08T10:00:00+00:00',
     decision: {
       category: 'plumbing',

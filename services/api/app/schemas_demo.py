@@ -36,6 +36,8 @@ class DemoDecisionRequest(BaseModel):
 
 # Hazırlık isteği (uyandırma): model çağrısı YAPMAZ.
 DemoUnavailableReason = Literal["disabled", "not_configured", "budget_exhausted"]
+# Talebi karşılayan motor: "jev" (gerçek model, ücretli) veya "rules" (kural tabanlı, ücretsiz).
+DemoEngine = Literal["jev", "rules"]
 
 
 class DemoLimits(BaseModel):
@@ -50,8 +52,11 @@ class DemoStatus(BaseModel):
     api_ready: bool = True
     database_ready: bool
     database_ms: int | None  # Neon'un uyanma/sorgu süresi (yalnızca hazırlık isteğinde ölçülür)
-    enabled: bool
-    reason: DemoUnavailableReason | None
+    enabled: bool  # Jev (veya yerelde mock) ile karar üretilebilir mi
+    reason: DemoUnavailableReason | None  # Jev neden kullanılamıyor
+    # Talep kabul ediliyor mu ve hangi motorla: Jev kapalıyken kural tabanlı motor karşılayabilir.
+    accepting: bool = False
+    engine: DemoEngine | None = None
     provider: str | None  # "jev" | "mock"
     model: str | None
     is_mock: bool
@@ -128,6 +133,10 @@ class DemoDecisionResult(BaseModel):
     description: str
     location: str
     ticket_status: str
+    # Kararla talebin yönlendirildiği ekip (kod, deterministik atama); yoksa None (inceleme).
+    team: str | None = None
+    # Bu talebi karşılayan motor; iş yoksa None.
+    engine: DemoEngine | None = None
     created_at: datetime
     decision: DemoDecisionInfo | None
     usage: DemoUsage | None
