@@ -3,98 +3,150 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fakeDemoClient, makeResult, makeStatus, makeSummary } from '../demo-fixtures'
-import { RUN_ID, makeDetail, makeList, makeRun, makeSample } from '../experiment-fixtures'
-import { ApiError, type ExperimentSource } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { storeDemoToken, type DemoClient } from '../lib/demo-api'
-import { runDate } from '../lib/experiments'
-import { createStaticSource } from '../lib/static-experiments'
+import type { DemoDecisionResult } from '../lib/demo-types'
 import { vocab } from '../test-utils'
 import DemoPage from './DemoPage'
 
 beforeEach(() => storeDemoToken(null))
 
-async function renderReady(client: DemoClient = fakeDemoClient(), experiments: ExperimentSource | null = null) {
+async function renderReady(client: DemoClient = fakeDemoClient()) {
   const user = userEvent.setup()
-  render(<DemoPage client={client} vocab={vocab} experiments={experiments} />)
+  render(<DemoPage client={client} vocab={vocab} />)
   await screen.findByTestId('wake-summary')
   return { user, client }
 }
 
-const submitButton = () => screen.getByRole('button', { name: /Gerçek Jev ile karar üret|Jev değerlendiriyor/ })
+const submitButton = () => screen.getByRole('button', { name: /Talebi gönder|Gönderiliyor/ })
+const titleField = () => screen.getByLabelText(/^Ne oldu\?/)
+const descriptionField = () => screen.getByLabelText(/^Ayrıntılar/)
+const locationField = () => screen.getByLabelText(/^Nerede\?/)
+const topic = (name: RegExp) => screen.getByRole('button', { name })
+const receipt = () => screen.findByRole('region', { name: 'Talep fişi' })
+
+/** Kural tabanlı motorun karşıladığı tamamlanmış talep (Jev kapalı; model çağrısı yok). */
+function ruleResult(overrides: Partial<DemoDecisionResult> = {}): DemoDecisionResult {
+  const base = makeResult()
+  return makeResult({
+    engine: 'rules',
+    message:
+      'Talebin kural tabanlı ön değerlendirmeyle karşılandı. Yapay zekâ (Jev) şu an kapalı; ücretli çağrı yapılmadı.',
+    decision: { ...base.decision!, provider: 'rule_based', model: 'rules-v1', judgments: [] },
+    usage: null,
+    timings: { jev_call_ms: null, job_ms: 12, server_total_ms: 40 },
+    ...overrides,
+  })
+}
 
 async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Lavabo akıtıyor' }))
   await user.click(submitButton())
 }
 
-describe('DemoPage: hazırlık ve açıklama', () => {
-  it('sunucu hazır olunca uyanma süresini (model süresinden ayrı) ve veri uyarısını gösterir', async () => {
-    await renderReady(fakeDemoClient({ status: vi.fn().mockResolvedValue(makeStatus({ database_ms: 900 })) }))
-
-    const summary = screen.getByTestId('wake-summary')
-    expect(summary).toHaveTextContent('İlk istekten hazır olana kadar geçen süre')
-    expect(summary).toHaveTextContent('veritabanı kısmı')
-    expect(summary).toHaveTextContent('Jev çağrı süresi değildir')
-    const notice = screen.getByText(/Bilmen gerekenler/).closest('div')!
-    expect(notice).toHaveTextContent('Jev API sağlayıcısına gönderilir')
-    expect(notice).toHaveTextContent('72 saat sonra otomatik silinir')
-    expect(notice).toHaveTextContent('112')
-  })
-
-  it('sunucu hazır olana dek gönderme düğmesi kapalı; hazırlık isteği model çağırmaz', async () => {
-    const client = fakeDemoClient({ status: vi.fn(() => new Promise(() => {})) })
-    render(<DemoPage client={client} vocab={vocab} />)
-
-    expect(await screen.findByText(/Sunucu hazırlanıyor/)).toHaveTextContent('model çağrısı yapmaz')
-    expect(submitButton()).toBeDisabled()
-    expect(screen.getByText('Sunucu hazır olunca açılır.')).toBeInTheDocument()
-    // Pasif formda hazır örnekler de pasif: pasif alanları doldurmaz.
-    expect(screen.getByRole('button', { name: 'Lavabo akıtıyor' })).toBeDisabled()
-    expect(client.decide).not.toHaveBeenCalled()
-  })
-
-  it('hazır olunca "Sunucu hazır" rozeti; ayrıntı rozetin içinde katlıdır', async () => {
+describe('DemoPage: portal açılışı', () => {
+  it('şikâyet portalı olarak açılır: başlık, konu kartları ve form; demo uyarısı 112 ve silinmeyi söyler', async () => {
     await renderReady()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
+    expect(screen.getByRole('form', { name: 'Talep formu' })).toBeInTheDocument()
+    for (const name of [/Su \/ Tesisat/, /Elektrik/, /İnternet \/ BT/, /Temizlik/, /Emin değilim/]) {
+      expect(topic(name)).toHaveAttribute('aria-pressed', 'false')
+    }
+    const banner = screen.getByRole('note')
+    expect(banner).toHaveTextContent('gerçek bir bakım ekibine iletilmez')
+    expect(banner).toHaveTextContent('72 saat')
+    expect(banner).toHaveTextContent('112')
+    expect(within(banner).getByRole('link', { name: /Proje hakkında/ })).toHaveAttribute('href', '#/hakkinda')
+    // Araştırma anlatımı ve kayıtlı örnek ana sayfada değil, "Hakkında"dadır.
+    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
+  })
+
+  it('verinin nereye gittiği ve silindiği katlanan notta yazar', async () => {
+    await renderReady()
+
+    const disclosure = screen.getByTestId('disclosure')
+    expect(disclosure.tagName).toBe('DETAILS')
+    expect(disclosure).toHaveTextContent('Jev API sağlayıcısına gönderilir')
+    expect(disclosure).toHaveTextContent('72 saat sonra otomatik silinir')
+  })
+
+  it('hazır olunca "Sunucu hazır" rozeti; uyanma süresi rozetin içinde, model süresinden ayrı', async () => {
+    await renderReady(fakeDemoClient({ status: vi.fn().mockResolvedValue(makeStatus({ database_ms: 900 })) }))
 
     const badge = screen.getByTestId('wake-summary')
     expect(badge.tagName).toBe('DETAILS')
     expect(badge).not.toHaveAttribute('open')
     expect(within(badge).getByText('Sunucu hazır')).toBeInTheDocument()
-    expect(badge).toHaveAttribute('title', expect.stringContaining('Jev çağrı süresi değildir'))
+    expect(badge).toHaveTextContent('İlk istekten hazır olana kadar geçen süre')
+    expect(badge).toHaveTextContent('Jev çağrı süresi değildir')
   })
 
-  it('giriş bölümü projeyi ve üç adımı anlatır, ölçüm sonuçlarına bağlantı verir', async () => {
-    await renderReady()
+  it('sunucu uyanırken form doldurulabilir ama gönderilemez; hazırlık isteği model çağırmaz', async () => {
+    const user = userEvent.setup()
+    const client = fakeDemoClient({ status: vi.fn(() => new Promise(() => {})) })
+    render(<DemoPage client={client} vocab={vocab} />)
 
-    const intro = screen.getByRole('region', { name: 'TalepAkış' })
-    expect(intro).toHaveTextContent('Türkçe servis taleplerini kategorize eden')
-    expect(intro).toHaveTextContent('React Native')
-    const steps = within(intro).getByRole('list', { name: 'Nasıl çalışır' })
-    expect(within(steps).getAllByRole('listitem')).toHaveLength(3)
-    expect(within(intro).getByRole('link', { name: /Ölçüm sonuçları/ })).toHaveAttribute('href', '#/sonuclar')
-  })
-
-  it('demo kullanılamıyorsa nedeni nötr bilgi olarak gösterilir ve gönderme kapalıdır', async () => {
-    const client = fakeDemoClient({
-      status: vi.fn().mockResolvedValue(makeStatus({ enabled: false, reason: 'budget_exhausted' })),
-    })
-    await renderReady(client)
-
-    const notice = screen.getByText(/bütçe doldu/).closest('.notice')!
-    expect(notice).toHaveClass('notice-info')
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(await screen.findByText(/Sunucu hazırlanıyor…/)).toHaveTextContent('model çağrısı yapmaz')
+    await user.type(titleField(), 'Priz yanıyor')
+    expect(titleField()).toHaveValue('Priz yanıyor')
     expect(submitButton()).toBeDisabled()
+    expect(submitButton()).toHaveAttribute('aria-describedby', 'submit-reason')
+    expect(screen.getByText(/bu sırada formu doldurabilirsin/)).toBeInTheDocument()
     expect(client.decide).not.toHaveBeenCalled()
   })
 
-  it('MOCK kurulumda sonuçlar açıkça "gerçek ölçüm değil" diye işaretlenir', async () => {
+  it('Jev açıkken talebin yapay zekâ ile değerlendirileceği yazar', async () => {
+    await renderReady()
+
+    expect(screen.getByText(/yapay zekâ \(Jev\) ile ön değerlendirilir/)).toBeInTheDocument()
+    expect(submitButton()).toBeEnabled()
+  })
+
+  it('Jev kapalı ama talep alınıyorsa: form açık, kural tabanlı karşılanacağı açıkça yazar (hata değil)', async () => {
     await renderReady(
       fakeDemoClient({
-        status: vi.fn().mockResolvedValue(makeStatus({ is_mock: true, provider: 'mock-jev' })),
+        status: vi
+          .fn()
+          .mockResolvedValue(
+            makeStatus({ enabled: false, reason: 'not_configured', accepting: true, engine: 'rules' }),
+          ),
       }),
     )
 
-    expect(screen.getByText(/gerçek ölçüm değildir/)).toBeInTheDocument()
+    expect(screen.getByText(/Yapay zekâ şu an kapalı; talebin kural tabanlı/)).toHaveTextContent('model çağrısı yok')
+    expect(submitButton()).toBeEnabled()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(document.querySelector('.notice-error')).toBeNull()
+  })
+
+  it('talep alımı kapalıysa (acil durdurma) nötr bilgi; alanlar ve gönderme kapalı', async () => {
+    const client = fakeDemoClient({
+      status: vi
+        .fn()
+        .mockResolvedValue(makeStatus({ enabled: false, reason: 'disabled', accepting: false, engine: null })),
+    })
+    await renderReady(client)
+
+    const notice = screen.getByText('Talep alımı şu an kapalı.', { selector: 'strong' }).closest('.notice')!
+    expect(notice).toHaveClass('notice-info')
+    expect(within(notice as HTMLElement).getByRole('link', { name: 'Ölçüm sonuçları' })).toHaveAttribute(
+      'href',
+      '#/sonuclar',
+    )
+    expect(submitButton()).toBeDisabled()
+    expect(titleField()).toBeDisabled()
+    expect(topic(/Elektrik/)).toBeDisabled()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(client.decide).not.toHaveBeenCalled()
+  })
+
+  it('MOCK kurulumda "gerçek ölçüm değil" uyarısı görünür', async () => {
+    await renderReady(
+      fakeDemoClient({ status: vi.fn().mockResolvedValue(makeStatus({ is_mock: true, provider: 'mock-jev' })) }),
+    )
+
+    expect(screen.getAllByText(/gerçek ölçüm değildir/).length).toBeGreaterThan(0)
   })
 
   it('sunucuya hiç ulaşılamazsa hata ve kullanıcı kontrollü yeniden dene', async () => {
@@ -113,105 +165,42 @@ describe('DemoPage: hazırlık ve açıklama', () => {
   })
 })
 
-/** Statik kaynak: s003 tartışmasız, s023 tartışmalı (kayıtlı örnekte gösterilmez). */
-function recordedSource(): ExperimentSource {
-  const s003 = makeSample()
-  s003.sample = {
-    ...s003.sample,
-    id: 's003',
-    title: 'lavabo akitiyor',
-    description: 'lavabodan surekli su akiyor, yer su oldu yardim edin',
-    location: 'C blok 1. kat tuvaletler',
-    disputed: null,
-  }
-  return createStaticSource({
-    list: makeList(),
-    details: { [RUN_ID]: makeDetail() },
-    samples: { [RUN_ID]: { s003, s023: makeSample() } },
-  })
-}
-
-const notConfigured = () =>
-  fakeDemoClient({ status: vi.fn().mockResolvedValue(makeStatus({ enabled: false, reason: 'not_configured' })) })
-
-describe('DemoPage: canlı deneme kapalı (not_configured)', () => {
-  it('kırmızı hata değil nötr bilgi; kayıtlı örnek kartı "Kayıtlı örnek · tarih" etiketiyle gelir', async () => {
-    const client = notConfigured()
-    await renderReady(client, recordedSource())
-
-    const card = await screen.findByRole('region', { name: 'Kayıtlı örnek' })
-    const notice = screen.getByText('Canlı Jev denemesi şu an kapalı.').closest('.notice')!
-    expect(notice).toHaveClass('notice-info')
-    expect(notice).toHaveTextContent('Aşağıda kayıtlı bir örnek kararı ve ölçüm sonuçlarını inceleyebilirsin.')
-    expect(screen.queryByRole('alert')).toBeNull()
-    expect(document.querySelector('.notice-error')).toBeNull()
-
-    expect(within(card).getByText(`Kayıtlı örnek · ${runDate(makeRun())}`)).toHaveClass('badge-recorded')
-    expect(card).toHaveTextContent('lavabo akitiyor')
-    expect(card).not.toHaveTextContent('Asansör') // tartışmalı etiketli örnek seçilmez
-    expect(card).toHaveTextContent('Gerçek Jev (jev-1.13.0)')
-    expect(card).toHaveTextContent('Diğer') // kategori
-    expect(card).toHaveTextContent('Yüksek') // öncelik
-    expect(card).toHaveTextContent('Eksik bilgi')
-    expect(card).toHaveTextContent('320 ms') // kayıtlı karar süresi
-    expect(card).toHaveTextContent('0,000038682 USD') // kayıtlı ücret
-    expect(card).toHaveTextContent('canlı istek değil')
-    expect(within(card).getByRole('link', { name: /Tüm ölçüm sonuçları/ })).toHaveAttribute('href', '#/sonuclar')
-    expect(within(card).queryByRole('button', { name: /Başka kayıtlı örnek/ })).toBeNull() // tek uygun örnek
-    expect(client.decide).not.toHaveBeenCalled()
-    expect(client.openSession).not.toHaveBeenCalled()
-  })
-
-  it('pasif gönderme düğmesinin yanında nedeni yazar; hazır örnek çipleri de pasiftir', async () => {
-    const { user } = await renderReady(notConfigured(), recordedSource())
-
-    expect(submitButton()).toBeDisabled()
-    expect(screen.getByText('Canlı deneme şu an kapalı')).toBeInTheDocument()
-    expect(submitButton()).toHaveAttribute('aria-describedby', 'submit-reason')
-    const chip = screen.getByRole('button', { name: 'Lavabo akıtıyor' })
-    expect(chip).toBeDisabled()
-    await user.click(chip)
-    expect(screen.getByLabelText(/^Başlık/)).toHaveValue('')
-  })
-
-  it('kayıtlı karar yoksa "Ölçüm sonuçları"na belirgin bir düğme konur (uydurma kart yok)', async () => {
-    await renderReady(notConfigured(), null)
-
-    const link = screen.getByRole('link', { name: /Ölçüm sonuçlarını incele/ })
-    expect(link).toHaveAttribute('href', '#/sonuclar')
-    expect(link).toHaveClass('btn-primary')
-    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
-    expect(screen.getByText(/Canlı Jev denemesi şu an kapalı/).closest('.notice')).toHaveTextContent(
-      'Kayıtlı ölçüm sonuçlarını inceleyebilirsin.',
-    )
-  })
-
-  it('canlı deneme açıkken kayıtlı örnek gösterilmez', async () => {
-    await renderReady(fakeDemoClient(), recordedSource())
-
-    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Lavabo akıtıyor' })).toBeEnabled()
-  })
-})
-
 describe('DemoPage: form', () => {
-  it('hazır örnek alanları doldurur ve sayaçları gösterir', async () => {
+  it('konu seçimi yalnızca ipucunu değiştirir; karar isteğine konu GİTMEZ', async () => {
+    const { user, client } = await renderReady()
+
+    await user.click(topic(/Elektrik/))
+    expect(topic(/Elektrik/)).toHaveAttribute('aria-pressed', 'true')
+    expect(titleField()).toHaveAttribute('placeholder', 'ör. Koridor lambası yanmıyor')
+    await user.click(topic(/Elektrik/))
+    expect(topic(/Elektrik/)).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(topic(/Su \/ Tesisat/))
+    await fillAndSubmit(user)
+
+    expect(client.decide).toHaveBeenCalledWith({
+      title: 'Lavabo akıtıyor',
+      description: 'B blok ikinci kattaki ortak lavabo akıtıyor, su koridora yayılıyor.',
+      location: 'B Blok, 2. kat',
+    })
+  })
+
+  it('örnek metin alanları doldurur ve sayaçları gösterir', async () => {
     const { user } = await renderReady()
 
     await user.click(screen.getByRole('button', { name: 'Koridor lambası' }))
 
-    expect(screen.getByLabelText(/^Başlık/)).toHaveValue('Koridor lambası yanmıyor')
-    expect(screen.getByLabelText(/^Konum/)).toHaveValue('A Blok, 3. kat koridor')
-    // Her alanın karakter sayacı vardır: başlık 24/120, açıklama .../1000, konum 22/120.
-    expect(screen.getByLabelText(/^Başlık/).closest('label')).toHaveTextContent('24/120')
-    expect(screen.getByLabelText(/^Konum/).closest('label')).toHaveTextContent('22/120')
-    expect(screen.getByLabelText(/^Açıklama/).closest('label')).toHaveTextContent('/1000')
+    expect(titleField()).toHaveValue('Koridor lambası yanmıyor')
+    expect(locationField()).toHaveValue('A Blok, 3. kat koridor')
+    expect(titleField().closest('label')).toHaveTextContent('24/120')
+    expect(locationField().closest('label')).toHaveTextContent('22/120')
+    expect(descriptionField().closest('label')).toHaveTextContent('/1000')
   })
 
   it('geçersiz girdide hata gösterir ve istek GÖNDERMEZ', async () => {
     const { user, client } = await renderReady()
 
-    await user.type(screen.getByLabelText(/^Başlık/), 'ab')
+    await user.type(titleField(), 'ab')
     await user.click(submitButton())
 
     expect(screen.getByText('Başlık en az 3 karakter olmalı.')).toBeInTheDocument()
@@ -222,9 +211,9 @@ describe('DemoPage: form', () => {
   it('geçerli girdi kırpılarak gönderilir', async () => {
     const { user, client } = await renderReady()
 
-    await user.type(screen.getByLabelText(/^Başlık/), '  Priz yanıyor  ')
-    await user.type(screen.getByLabelText(/^Açıklama/), '  Prizden duman çıktı, lütfen bakın.  ')
-    await user.type(screen.getByLabelText(/^Konum/), '  C Blok  ')
+    await user.type(titleField(), '  Priz yanıyor  ')
+    await user.type(descriptionField(), '  Prizden duman çıktı, lütfen bakın.  ')
+    await user.type(locationField(), '  C Blok  ')
     await user.click(submitButton())
 
     expect(client.decide).toHaveBeenCalledWith({
@@ -249,86 +238,93 @@ describe('DemoPage: form', () => {
     await user.dblClick(submitButton())
 
     expect(client.decide).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: /Jev değerlendiriyor/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Gönderiliyor…' })).toBeDisabled()
     release()
-    await screen.findByRole('region', { name: 'Sonuç' })
+    await receipt()
     expect(client.decide).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('DemoPage: sonuç', () => {
-  it('kategori, öncelik, uygulanma durumu, gerçek token ve ücret, ayrı süreler gösterilir', async () => {
+describe('DemoPage: talep fişi', () => {
+  it('Jev kararı: numara, kategori, öncelik, ekip ve "Yapay zekâ" rozeti; teknik ayrıntılar katlıdır', async () => {
     const { user } = await renderReady()
 
     await fillAndSubmit(user)
 
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
-    expect(within(panel).getByRole('heading', { name: /Sonuç — TA-0007/ })).toBeInTheDocument()
-    expect(panel).toHaveTextContent('Gerçek Jev (jev-1.13.0)')
-    expect(panel).toHaveTextContent('Su/Tesisat')
-    expect(panel).toHaveTextContent('Yüksek')
-    expect(panel).toHaveTextContent('uygulandı (talep durumu: Atandı)')
-    expect(panel).toHaveTextContent('İletişim bilgisi eksik')
-    expect(panel).toHaveTextContent('gerekmiyor')
-    expect(panel).toHaveTextContent('392')
-    expect(panel).toHaveTextContent('65')
-    expect(panel).toHaveTextContent('çıktı tokenları ücretsiz')
-    expect(panel).toHaveTextContent('0,000016464 USD')
-    expect(panel).toHaveTextContent("Jev'in bildirdiği kullanımdan hesaplandı")
+    const card = await receipt()
+    expect(within(card).getByRole('heading', { name: 'Talebin alındı ve ilgili ekibe yönlendirildi' })).toBeVisible()
+    expect(card).toHaveTextContent('TA-0007')
+    expect(card).toHaveTextContent('Yapay zekâ ön değerlendirmesi · Jev')
+    expect(card).toHaveTextContent('Su/Tesisat')
+    expect(card).toHaveTextContent('Yüksek')
+    expect(card).toHaveTextContent('Su/Tesisat Ekibi')
+    expect(card).toHaveTextContent('Atandı')
+    expect(card).toHaveTextContent('Ekip şu bilgileri isteyebilir: İletişim bilgisi eksik.')
+    expect(card).toHaveTextContent('Bildirdiğin sorun')
+    expect(card).toHaveTextContent('gerçek bir bakım ekibine iletilmez')
+    expect(screen.queryByRole('form', { name: 'Talep formu' })).toBeNull()
+
+    const tech = screen.getByTestId('technical-details').closest('details')!
+    expect(tech).not.toHaveAttribute('open')
+    expect(tech).toHaveTextContent('Gerçek Jev (jev-1.13.0)')
+    expect(tech).toHaveTextContent('uygulandı (talep durumu: Atandı)')
+    expect(tech).toHaveTextContent('392')
+    expect(tech).toHaveTextContent('0,000016464 USD')
+    expect(tech).toHaveTextContent("Jev'in bildirdiği kullanımdan hesaplandı")
     const timings = within(screen.getByTestId('timings'))
     expect(timings.getByText('Sunucu uyanma')).toBeInTheDocument()
     expect(timings.getByText('Uçtan uca bekleme')).toBeInTheDocument()
     expect(timings.getByText('Jev çağrısı')).toBeInTheDocument()
     expect(timings.getByText('481 ms')).toBeInTheDocument()
-    expect(panel).toHaveTextContent('benchmark sonucu değildir')
-    expect(panel).toHaveTextContent('doğruluk oranı çıkarılmaz')
+    expect(tech).toHaveTextContent('benchmark sonucu değildir')
   })
 
-  it('yargı tablosu Jev güveni ile türetilmiş marjı ayrı etiketler', async () => {
+  it('kural tabanlı karar: "yapay zekâ" denmez; ücret yok, Jev süresi yerine kural süresi', async () => {
+    const decide = vi.fn().mockResolvedValue(ruleResult())
+    const { user } = await renderReady(fakeDemoClient({ decide }))
+
+    await fillAndSubmit(user)
+
+    const card = await receipt()
+    expect(card).toHaveTextContent('Kural tabanlı ön değerlendirme')
+    expect(card).not.toHaveTextContent('Yapay zekâ ön değerlendirmesi')
+    expect(card).not.toHaveTextContent('Gerçek Jev')
+    expect(card).toHaveTextContent('ücretli çağrı yapılmadı')
+    expect(card).toHaveTextContent('Su/Tesisat Ekibi')
+    expect(card).toHaveTextContent("Jev'e bu talep için istek gönderilmedi")
+    const timings = within(screen.getByTestId('timings'))
+    expect(timings.getByText('Kural değerlendirmesi')).toBeInTheDocument()
+    expect(timings.queryByText('Jev çağrısı')).toBeNull()
+  })
+
+  it('seçilen konu sistemin belirlediği kategoriyle karşılaştırılır (eşleşme ve fark)', async () => {
     const { user } = await renderReady()
+    await user.click(topic(/Su \/ Tesisat/))
     await fillAndSubmit(user)
+    expect(await receipt()).toHaveTextContent('Seçtiğin konu: Su/Tesisat · Sistemin metinden belirlediği: Su/Tesisat ✓')
 
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
-    await user.click(within(panel).getByText(/Soru bazında yargılar/))
-
-    expect(panel).toHaveTextContent('0,88 (Jev güveni)')
-    expect(panel).toHaveTextContent('türetilmiş marj; Jev güveni değil')
-    expect(panel).toHaveTextContent('Konum')
+    await user.click(screen.getByRole('button', { name: 'Yeni talep oluştur' }))
+    await user.click(topic(/Elektrik/))
+    await fillAndSubmit(user)
+    expect(await receipt()).toHaveTextContent(
+      'Seçtiğin konu: Elektrik · Sistemin metinden belirlediği: Su/Tesisat (farklı)',
+    )
   })
 
-  it('kullanım bildirilmediyse ücret "bilinmiyor", token "bildirilmedi" (sıfır değil)', async () => {
-    const result = makeResult()
-    result.usage = {
-      ...result.usage!,
-      input_tokens: null,
-      output_tokens: null,
-      cost_usd: null,
-      cost_basis: 'unknown',
-    }
-    const { user } = await renderReady(fakeDemoClient({ decide: vi.fn().mockResolvedValue(result) }))
-
-    await fillAndSubmit(user)
-
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
-    expect(panel).toHaveTextContent('bilinmiyor')
-    expect(panel).toHaveTextContent('bütçede en kötü bedelle sayılır')
-    expect(panel).toHaveTextContent('bildirilmedi')
-    expect(panel).not.toHaveTextContent('0,0000 USD')
-  })
-
-  it('inceleme gereken kararda nedenler listelenir', async () => {
-    const result = makeResult()
+  it('ekip atanamadıysa "insan incelemesine bırakıldı" ve nedenler listelenir', async () => {
+    const result = makeResult({ team: null, ticket_status: 'needs_review' })
     result.decision!.review_required = true
     result.decision!.review_explanations = ['Metinde modele talimat veriyormuş gibi ifadeler algılandı.']
-    result.ticket_status = 'needs_review'
     const { user } = await renderReady(fakeDemoClient({ decide: vi.fn().mockResolvedValue(result) }))
 
     await fillAndSubmit(user)
 
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
-    expect(panel).toHaveTextContent('gerekiyor')
-    expect(panel).toHaveTextContent('modele talimat veriyormuş gibi')
-    expect(panel).toHaveTextContent('talep durumu: İnceleme bekliyor')
+    const card = await receipt()
+    expect(within(card).getByRole('heading', { name: 'Talebin kaydedildi' })).toBeInTheDocument()
+    expect(card).toHaveTextContent('İnsan incelemesine bırakıldı')
+    expect(card).toHaveTextContent('İnceleme bekliyor')
+    expect(card).toHaveTextContent('Bir görevli kontrol edecek:')
+    expect(card).toHaveTextContent('modele talimat veriyormuş gibi')
   })
 
   it('mock sonuç "MOCK — gerçek model değil" rozetiyle gösterilir', async () => {
@@ -338,14 +334,41 @@ describe('DemoPage: sonuç', () => {
 
     await fillAndSubmit(user)
 
-    expect(await screen.findByText('MOCK — gerçek model değil')).toBeInTheDocument()
-    expect(screen.queryByText(/Gerçek Jev \(/)).not.toBeInTheDocument()
+    expect((await screen.findAllByText('MOCK — gerçek model değil')).length).toBeGreaterThan(0)
+    expect(await receipt()).not.toHaveTextContent('Yapay zekâ ön değerlendirmesi')
   })
 
-  it('belirsiz sonuç açıkça söylenir; yeniden gönder/sorgula düğmeleri yoktur', async () => {
+  it('yargı tablosu Jev güveni ile türetilmiş marjı ayrı etiketler', async () => {
+    const { user } = await renderReady()
+    await fillAndSubmit(user)
+
+    const card = await receipt()
+    await user.click(within(card).getByText(/Teknik ayrıntılar/))
+    await user.click(within(card).getByText(/Soru bazında yargılar/))
+
+    expect(card).toHaveTextContent('0,88 (Jev güveni)')
+    expect(card).toHaveTextContent('türetilmiş marj; Jev güveni değil')
+  })
+
+  it('kullanım bildirilmediyse ücret "bilinmiyor", token "bildirilmedi" (sıfır değil)', async () => {
+    const result = makeResult()
+    result.usage = { ...result.usage!, input_tokens: null, output_tokens: null, cost_usd: null, cost_basis: 'unknown' }
+    const { user } = await renderReady(fakeDemoClient({ decide: vi.fn().mockResolvedValue(result) }))
+
+    await fillAndSubmit(user)
+
+    const card = await receipt()
+    expect(card).toHaveTextContent('bilinmiyor')
+    expect(card).toHaveTextContent('bütçede en kötü bedelle sayılır')
+    expect(card).toHaveTextContent('bildirilmedi')
+    expect(card).not.toHaveTextContent('0,0000 USD')
+  })
+
+  it('belirsiz sonuç açıkça söylenir; karar uydurulmaz, yeniden gönder/sorgula yoktur', async () => {
     const result = makeResult({
       state: 'uncertain',
       message: 'Jev isteğinin sonucu bilinmiyor. OTOMATİK yeniden gönderilmedi.',
+      team: null,
       decision: null,
       usage: null,
     })
@@ -353,33 +376,35 @@ describe('DemoPage: sonuç', () => {
 
     await fillAndSubmit(user)
 
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
-    expect(panel).toHaveTextContent('Sonuç belirsiz')
-    expect(panel).toHaveTextContent('OTOMATİK yeniden gönderilmedi')
-    expect(panel).toHaveTextContent("Jev'e bu talep için istek gönderilmedi")
-    expect(within(panel).queryByRole('button', { name: /yeniden gönder/ })).toBeNull()
-    expect(within(panel).queryByRole('button', { name: 'Sonucu sorgula' })).toBeNull()
-    expect(panel).not.toHaveTextContent('Su/Tesisat') // uydurma karar yok
+    const card = await receipt()
+    expect(within(card).getByRole('heading', { name: 'Talebin kaydedildi' })).toBeInTheDocument()
+    expect(card).toHaveTextContent('OTOMATİK yeniden gönderilmedi')
+    expect(within(card).queryByRole('button', { name: /yeniden gönder/ })).toBeNull()
+    expect(within(card).queryByRole('button', { name: 'Sonucu sorgula' })).toBeNull()
+    expect(card).not.toHaveTextContent('Su/Tesisat Ekibi')
   })
 
-  it('bekleyen talepte: sorgulama yalnızca okur, yeniden gönderme aynı metni yollar', async () => {
+  it('bekleyen talepte: sorgulama yalnızca okur', async () => {
     const pending = makeResult({
       state: 'pending',
       message: 'Kaydedildi; karar henüz çalışmadı.',
       decision: null,
       usage: null,
     })
-    const decide = vi.fn().mockResolvedValueOnce(pending).mockResolvedValueOnce(makeResult())
-    const getDecision = vi.fn().mockResolvedValue(makeResult({ state: 'running', decision: null, usage: null }))
+    const decide = vi.fn().mockResolvedValueOnce(pending)
+    const getDecision = vi.fn().mockResolvedValue(makeResult())
     const { user, client } = await renderReady(fakeDemoClient({ decide, getDecision }))
     await fillAndSubmit(user)
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
+    const card = await receipt()
+    expect(card).toHaveTextContent('Kaydedildi; karar henüz çalışmadı.')
 
-    await user.click(within(panel).getByRole('button', { name: 'Sonucu sorgula' }))
+    await user.click(within(card).getByRole('button', { name: 'Sonucu sorgula' }))
 
     expect(getDecision).toHaveBeenCalledWith('ticket-1')
-    expect(decide).toHaveBeenCalledTimes(1) // sorgulama ücretli çağrı başlatmadı
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Sonuç' })).toHaveTextContent('Karar üretiliyor'))
+    expect(decide).toHaveBeenCalledTimes(1) // sorgulama yeni çağrı başlatmadı
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Talebin alındı ve ilgili ekibe yönlendirildi' })).toBeInTheDocument(),
+    )
     expect(client.openSession).toHaveBeenCalledTimes(1)
   })
 
@@ -388,41 +413,53 @@ describe('DemoPage: sonuç', () => {
     const decide = vi.fn().mockResolvedValueOnce(pending).mockResolvedValueOnce(makeResult())
     const { user } = await renderReady(fakeDemoClient({ decide }))
     await fillAndSubmit(user)
-    const panel = await screen.findByRole('region', { name: 'Sonuç' })
+    const card = await receipt()
 
-    await user.click(within(panel).getByRole('button', { name: 'Aynı talebi yeniden gönder' }))
+    await user.click(within(card).getByRole('button', { name: 'Aynı talebi yeniden gönder' }))
 
     await waitFor(() => expect(decide).toHaveBeenCalledTimes(2))
-    expect(decide.mock.calls[1][0]).toEqual({
-      title: 'Lavabo akıtıyor',
-      description: 'B blok ikinci kattaki ortak lavabo akıtıyor, su koridora yayılıyor.',
-      location: 'B Blok, 2. kat',
-    })
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Sonuç' })).toHaveTextContent('Jev kararı üretildi'))
+    expect(decide.mock.calls[1][0]).toEqual(decide.mock.calls[0][0])
   })
 
-  it('sunucu hata mesajı (429 vb.) olduğu gibi gösterilir', async () => {
+  it('"Yeni talep oluştur" boş forma döner; sunucuya istek göndermez', async () => {
+    const { user, client } = await renderReady()
+    await user.click(topic(/Su \/ Tesisat/))
+    await fillAndSubmit(user)
+    await receipt()
+
+    await user.click(screen.getByRole('button', { name: 'Yeni talep oluştur' }))
+
+    expect(screen.getByRole('form', { name: 'Talep formu' })).toBeInTheDocument()
+    expect(titleField()).toHaveValue('')
+    expect(topic(/Su \/ Tesisat/)).toHaveAttribute('aria-pressed', 'false')
+    expect(client.decide).toHaveBeenCalledTimes(1)
+  })
+
+  it('sunucu hata mesajı (429 vb.) olduğu gibi gösterilir; fiş uydurulmaz', async () => {
     const decide = vi.fn().mockRejectedValue(new ApiError(429, 'demo_capacity', 'Demo bugünkü kapasitesine ulaştı.'))
     const { user } = await renderReady(fakeDemoClient({ decide }))
 
     await fillAndSubmit(user)
 
     expect(await screen.findByText('Demo bugünkü kapasitesine ulaştı.')).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Sonuç' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Talep fişi' })).toBeNull()
   })
 
-  it('önceki denemeler listelenir ve "Göster" yalnızca okur', async () => {
+  it('"Taleplerim" motordan bağımsız durum adıyla listelenir ve "Göster" yalnızca okur', async () => {
     storeDemoToken('var')
     const listDecisions = vi.fn().mockResolvedValue([makeSummary({ title: 'Eski talep', ticket_id: 'eski-1' })])
-    const getDecision = vi.fn().mockResolvedValue(makeResult({ ticket_id: 'eski-1', title: 'Eski talep' }))
+    const getDecision = vi.fn().mockResolvedValue(ruleResult({ ticket_id: 'eski-1', title: 'Eski talep' }))
     const { user, client } = await renderReady(fakeDemoClient({ listDecisions, getDecision }))
 
-    const history = await screen.findByRole('region', { name: 'Önceki denemelerim' })
-    expect(history).toHaveTextContent('TA-0007 — Eski talep')
+    const history = await screen.findByRole('region', { name: 'Taleplerim' })
+    expect(history).toHaveTextContent('TA-0007')
+    expect(history).toHaveTextContent('Eski talep')
+    expect(history).toHaveTextContent('Değerlendirildi')
+    expect(history).not.toHaveTextContent('Jev kararı üretildi')
     await user.click(within(history).getByRole('button', { name: 'Göster' }))
 
     expect(getDecision).toHaveBeenCalledWith('eski-1')
     expect(client.decide).not.toHaveBeenCalled()
-    expect(await screen.findByRole('region', { name: 'Sonuç' })).toHaveTextContent('Eski talep')
+    expect(await receipt()).toHaveTextContent('Eski talep')
   })
 })

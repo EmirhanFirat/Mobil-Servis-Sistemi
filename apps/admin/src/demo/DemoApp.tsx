@@ -5,6 +5,7 @@ import { API_URL } from '../lib/config'
 import { createDemoClient, readDemoToken, storeDemoToken } from '../lib/demo-api'
 import { loadStaticBundle } from '../lib/static-experiments'
 import { useResource } from '../lib/use-resource'
+import AboutPage from './AboutPage'
 import DemoPage from './DemoPage'
 import ResultsPage from './ResultsPage'
 
@@ -37,13 +38,14 @@ function DemoLayout() {
       <ScrollToTop />
       <header className="topbar demo-topbar">
         <span className="brand">
-          TalepAkış<span className="brand-sub"> · canlı demo</span>
+          TalepAkış<span className="brand-sub"> · Kampüs Destek</span>
         </span>
         <nav aria-label="Demo sayfaları">
           <NavLink to="/" end>
-            Jev ile dene
+            Talep oluştur
           </NavLink>
-          <NavLink to="/sonuclar">Ölçüm sonuçları</NavLink>
+          <NavLink to="/hakkinda">Hakkında</NavLink>
+          <NavLink to="/sonuclar">Sonuçlar</NavLink>
         </nav>
         <div className="spacer" />
         <a
@@ -60,7 +62,9 @@ function DemoLayout() {
       </header>
       <main className="content">
         <Outlet />
-        <footer className="muted small demo-footer">Portföy demosu · Render + Neon üzerinde ücretsiz barındırılır.</footer>
+        <footer className="muted small demo-footer">
+          Portföy demosu · Render + Neon üzerinde ücretsiz barındırılır.
+        </footer>
       </main>
     </div>
   )
@@ -84,11 +88,10 @@ export default function DemoApp() {
     <HashRouter>
       <Routes>
         <Route element={<DemoLayout />}>
+          <Route index element={<DemoPage client={client} vocab={bundle?.vocabulary ?? null} />} />
           <Route
-            index
-            element={
-              <DemoPage client={client} vocab={bundle?.vocabulary ?? null} experiments={bundle?.source ?? null} />
-            }
+            path="hakkinda"
+            element={<AboutPage vocab={bundle?.vocabulary ?? null} experiments={bundle?.source ?? null} />}
           />
           <Route
             path="sonuclar"

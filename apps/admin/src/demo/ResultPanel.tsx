@@ -1,20 +1,10 @@
-import { Badge, Notice } from '../components/ui'
-import { DEMO_STATE_LABELS, answerText, confidenceText, durationText, questionLabel, tokenText } from '../lib/demo-text'
-import type { DemoDecisionResult, DemoJudgment, DemoState, DemoUsage } from '../lib/demo-types'
+import { Badge } from '../components/ui'
+import { answerText, confidenceText, durationText, questionLabel, tokenText } from '../lib/demo-text'
+import type { DemoDecisionResult, DemoJudgment, DemoUsage } from '../lib/demo-types'
 import { NA, formatUsd } from '../lib/experiments'
-import { labelOf, ticketNumber } from '../lib/format'
+import { labelOf } from '../lib/format'
 import type { Vocabulary } from '../lib/types'
 import type { DecisionRun } from './use-demo-decision'
-
-const TONE: Record<DemoState, 'info' | 'error' | 'success'> = {
-  completed: 'success',
-  pending: 'info',
-  running: 'info',
-  skipped: 'info',
-  failed: 'error',
-  uncertain: 'error',
-  budget_exhausted: 'error',
-}
 
 function Facts({ result, vocab }: { result: DemoDecisionResult; vocab: Vocabulary | null }) {
   const info = result.decision
@@ -27,7 +17,9 @@ function Facts({ result, vocab }: { result: DemoDecisionResult; vocab: Vocabular
     <dl className="facts">
       <dt>Kaynak</dt>
       <dd>
-        {info.is_mock ? (
+        {result.engine === 'rules' || info.provider === 'rule_based' ? (
+          <Badge kind="source-rule">Kural tabanlı ({info.model ?? 'kurallar'}) — yapay zekâ değil</Badge>
+        ) : info.is_mock ? (
           <Badge kind="source-mock">MOCK — gerçek model değil</Badge>
         ) : (
           <Badge kind="source-real">Gerçek Jev ({info.model})</Badge>
@@ -151,75 +143,49 @@ function Timings({ run, wakeMs }: { run: DecisionRun; wakeMs: number | null }) {
         <strong>{durationText(run.e2eMs)}</strong>
         <span className="muted small">Bu istek: düğme → yanıt (istemci ölçümü)</span>
       </div>
-      <div className="card">
-        <span className="muted small">Jev çağrısı</span>
-        <strong>{durationText(timings.jev_call_ms)}</strong>
-        <span className="muted small">Sunucudan Jev'e giden istek (ağ dahil)</span>
-      </div>
+      {run.result.engine === 'rules' ? (
+        <div className="card">
+          <span className="muted small">Kural değerlendirmesi</span>
+          <strong>{durationText(timings.job_ms)}</strong>
+          <span className="muted small">Sunucudaki karar işi; model çağrısı yok</span>
+        </div>
+      ) : (
+        <div className="card">
+          <span className="muted small">Jev çağrısı</span>
+          <strong>{durationText(timings.jev_call_ms)}</strong>
+          <span className="muted small">Sunucudan Jev'e giden istek (ağ dahil)</span>
+        </div>
+      )}
     </div>
   )
 }
 
+/**
+ * Fişin içindeki "Teknik ayrıntılar": karar, yargılar, kullanım/ücret ve süreler. Talep numarası,
+ * ileti, düğmeler ve talep metni fişte zaten gösterilir.
+ */
 export default function ResultPanel({
   run,
   vocab,
   wakeMs,
-  busy,
-  onCheck,
-  onResend,
 }: {
   run: DecisionRun
   vocab: Vocabulary | null
   wakeMs: number | null
-  busy: boolean
-  onCheck: (ticketId: string) => void
-  onResend: () => void
 }) {
   const { result } = run
-  const waiting = result.state === 'pending' || result.state === 'running'
   return (
-    <section className="card stack" aria-label="Sonuç">
-      <div className="row wrap">
-        <h2 style={{ margin: 0 }}>Sonuç — {ticketNumber(result.ticket_number)}</h2>
-        <Badge kind={result.state === 'completed' ? 'source-real' : undefined}>{DEMO_STATE_LABELS[result.state]}</Badge>
-      </div>
-      <Notice tone={TONE[result.state]}>{result.message}</Notice>
-      {waiting ? (
-        <div className="row wrap">
-          {result.state === 'pending' ? (
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={onResend}>
-              Aynı talebi yeniden gönder
-            </button>
-          ) : null}
-          <button type="button" className="btn" disabled={busy} onClick={() => onCheck(result.ticket_id)}>
-            Sonucu sorgula
-          </button>
-          <span className="muted small">
-            Aynı metin ikinci bir Jev çağrısı açmaz; sorgulamak hiçbir çağrı başlatmaz.
-          </span>
-        </div>
-      ) : null}
-
-      <div>
-        <h3>Gönderdiğin talep</h3>
-        <p style={{ margin: 0 }}>
-          <strong>{result.title}</strong>
-        </p>
-        <p className="description">{result.description}</p>
-        <p className="muted small">Konum: {result.location}</p>
-      </div>
-
+    <div className="stack" data-testid="technical-details">
       <Facts result={result} vocab={vocab} />
       <JudgmentsDetails judgments={result.decision?.judgments ?? []} vocab={vocab} />
       <h3>Kullanım ve ücret (gerçek, bildirilen)</h3>
       <UsageFacts usage={result.usage} />
       <h3>Süreler (birbirinden ayrı ölçülür)</h3>
       <Timings run={run} wakeMs={wakeMs} />
-      <p className="muted small">
+      <p className="muted small" style={{ margin: 0 }}>
         Bu, TEK bir isteğin ölçümüdür; benchmark sonucu değildir. Etiketi olmayan ziyaretçi taleplerinden doğruluk oranı
-        çıkarılmaz. Geçmiş benchmark sonuçları “Ölçüm sonuçları” sayfasındadır ve bu ölçümlerle karıştırılmaz. Kalan
-        hakkın: {result.decisions_remaining}.
+        çıkarılmaz. Kalan hakkın: {result.decisions_remaining}.
       </p>
-    </section>
+    </div>
   )
 }

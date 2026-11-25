@@ -12,9 +12,9 @@ export interface DecisionRun {
 }
 
 export const CONNECTION_LOST_HELP =
-  'Bağlantı koptu veya yanıt zamanında gelmedi. İstek sunucuda kaydedilmiş ve çalışmış olabilir: ' +
-  '"Önceki denemelerim" listesine bak. Aynı metni yeniden göndermek güvenlidir; aynı metin ikinci ' +
-  'bir Jev çağrısı açmaz.'
+  'Bağlantı koptu veya yanıt zamanında gelmedi. Talebin sunucuda kaydedilmiş olabilir: ' +
+  '"Taleplerim" listesine bak. Aynı metni yeniden göndermek güvenlidir; aynı metin ikinci ' +
+  'bir talep veya Jev çağrısı açmaz.'
 
 async function ensureSession(client: DemoClient): Promise<void> {
   if (readDemoToken()) return
@@ -100,5 +100,11 @@ export function useDemoDecision(client: DemoClient, now: () => number = () => pe
     [client, guarded],
   )
 
-  return { busy, run, error, history, submit, check, refreshHistory }
+  /** Fişi kapatıp yeni talep formuna döner (sunucuya istek göndermez). */
+  const clear = useCallback(() => {
+    setRun(null)
+    setError(null)
+  }, [])
+
+  return { busy, run, error, history, submit, check, refreshHistory, clear }
 }

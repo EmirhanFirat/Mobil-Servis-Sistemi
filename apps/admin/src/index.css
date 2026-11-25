@@ -856,3 +856,375 @@ details.server-status p {
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
+
+/* Kampüs destek portalı (demo ana sayfası) */
+.portal {
+  max-width: 60rem;
+  width: 100%;
+  margin: 0 auto;
+}
+.portal-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1.75rem 1.5rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--primary) 22%, transparent) 0, transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--card)) 0%, var(--card) 70%);
+}
+.portal-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 40rem;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.portal-hero h1 {
+  font-size: clamp(1.6rem, 4.5vw, 2.3rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.portal-hero .lead {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+.hero-points {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.hero-points li::before {
+  content: '✓';
+  color: var(--success);
+  margin-right: 0.35rem;
+}
+.hero-status {
+  flex: none;
+}
+.demo-banner {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.portal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.4rem;
+  border-radius: 14px;
+}
+.portal-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.portal-form legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+.topic {
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.85rem 0.9rem;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.topic:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+.topic.selected {
+  border-color: var(--primary);
+  background: var(--info-soft);
+}
+.topic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.topic-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-bottom: 0.25rem;
+  border-radius: 10px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.topic.selected .topic-icon {
+  color: var(--on-primary);
+  background: var(--primary);
+}
+.topic-label {
+  font-weight: 700;
+}
+.topic-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.portal-field > span {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.field-hint {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.portal-field input,
+.portal-field textarea {
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+}
+.portal-field textarea {
+  resize: vertical;
+}
+.counter {
+  align-self: flex-end;
+}
+.submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+.btn-large {
+  padding: 0.75rem 1.6rem;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+.engine-line {
+  margin: -0.6rem 0 0;
+}
+.samples {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  font-size: 0.88rem;
+}
+.samples > summary {
+  font-weight: 600;
+  color: var(--muted);
+}
+.samples p {
+  margin: 0.6rem 0 0;
+}
+.receipt {
+  scroll-margin-top: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.4rem;
+  border-radius: 14px;
+  border-top: 4px solid var(--success);
+}
+.receipt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+.receipt-title {
+  flex: 1;
+  min-width: 14rem;
+}
+.receipt-title h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+.receipt-title p {
+  margin: 0.2rem 0 0;
+}
+.receipt-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+}
+.receipt-icon.ok {
+  color: var(--success);
+  background: var(--success-soft);
+}
+.receipt-icon.wait {
+  color: var(--primary);
+  background: var(--info-soft);
+}
+.ticket-no {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.receipt-message {
+  margin: 0;
+}
+.receipt-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+.receipt-grid > div {
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.receipt-grid dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.receipt-grid dd {
+  margin: 0.2rem 0 0;
+  font-weight: 700;
+}
+.topic-compare {
+  margin: 0;
+}
+.receipt-note {
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--info-soft);
+  font-size: 0.9rem;
+}
+.receipt-note .reasons {
+  margin: 0.3rem 0 0;
+}
+.receipt-request {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-left: 0.85rem;
+  border-left: 3px solid var(--border);
+}
+.receipt-request .description {
+  margin: 0;
+}
+.receipt .tech {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.receipt .tech > summary {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.receipt .tech > .stack {
+  margin-top: 0.75rem;
+}
+.my-tickets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.my-tickets li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'no title btn' 'no meta btn';
+  align-items: center;
+  gap: 0.1rem 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+.my-tickets li:first-child {
+  border-top: 0;
+}
+.my-tickets .ticket-no {
+  grid-area: no;
+  font-weight: 700;
+  color: var(--primary);
+}
+.my-ticket-title {
+  grid-area: title;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.my-tickets li > .muted {
+  grid-area: meta;
+}
+.my-tickets li > .btn {
+  grid-area: btn;
+}
+.section-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+@media (max-width: 640px) {
+  .portal-hero {
+    padding: 1.25rem 1rem;
+  }
+  .portal-form,
+  .receipt {
+    padding: 1rem;
+  }
+  .topic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .topic {
+    padding: 0.7rem;
+  }
+  .topic-hint {
+    display: none;
+  }
+  /* Tek kalan kart ("Emin değilim") satırı doldurur. */
+  .topic:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .receipt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .btn-large {
+    width: 100%;
+  }
+}

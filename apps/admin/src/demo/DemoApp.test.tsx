@@ -61,8 +61,13 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
   it('yalnızca demo ekranlarını gösterir: yönetici/oturum ekranları ve uçları YOK', async () => {
     open('/')
 
-    expect(await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ölçüm sonuçları' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Talep oluştur', 'Hakkında', 'Sonuçlar'])
     for (const adminOnly of ['Kullanıcılar', 'Ekipler', 'Talepler', 'Çıkış yap', 'Giriş yap']) {
       expect(screen.queryByText(adminOnly)).toBeNull()
     }
@@ -89,23 +94,23 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
     expect(calls.some((url) => url.includes('/demo/') || url.includes('127.0.0.1:8000'))).toBe(false)
     expect(calls.every((url) => url.includes('demo-data/'))).toBe(true)
 
-    await user.click(screen.getByRole('link', { name: 'Jev ile dene' }))
-    expect(await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Talep oluştur' }))
+    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
   })
 
   it('bilinmeyen adres ana demo sayfasına yönlenir', async () => {
     open('/talepler/123')
 
-    expect(await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })).toBeInTheDocument()
     await waitFor(() => expect(window.location.hash).toBe('#/'))
   })
 
-  it('verinin Jev sağlayıcısına gittiği ve silindiği formun altında yazar; alt bilgi kısadır', async () => {
+  it('verinin nereye gittiği ve silindiği formun altında yazar; alt bilgi kısadır', async () => {
     open('/')
 
-    expect(await screen.findByTestId('disclosure')).toHaveTextContent(
-      /Jev API sağlayıcısına gönderilir ve 72 saat sonra otomatik silinir/,
-    )
+    const disclosure = await screen.findByTestId('disclosure')
+    expect(disclosure).toHaveTextContent('Jev API sağlayıcısına gönderilir')
+    expect(disclosure).toHaveTextContent('72 saat sonra otomatik silinir')
     expect(screen.getByRole('contentinfo')).toHaveTextContent('Portföy demosu')
   })
 
@@ -119,26 +124,36 @@ describe('DemoApp (herkese açık demo derlemesi)', () => {
 
   it('sekme değişince sayfa en üstten açılır (HashRouter kaydırmayı korumaz)', async () => {
     const user = open('/')
-    await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })
+    await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })
     scrollTo.mockClear()
 
     const nav = screen.getByRole('navigation', { name: 'Demo sayfaları' })
-    await user.click(within(nav).getByRole('link', { name: 'Ölçüm sonuçları' }))
+    await user.click(within(nav).getByRole('link', { name: 'Sonuçlar' }))
     expect(await screen.findByRole('heading', { name: 'Ölçüm sonuçları' })).toBeInTheDocument()
     expect(scrollTo).toHaveBeenCalledWith(0, 0)
 
     scrollTo.mockClear()
-    await user.click(within(nav).getByRole('link', { name: 'Jev ile dene' }))
-    await screen.findByRole('heading', { name: 'Gerçek Jev ile dene' })
+    await user.click(within(nav).getByRole('link', { name: 'Talep oluştur' }))
+    await screen.findByRole('heading', { name: 'Kampüste bir sorun mu var?' })
     expect(scrollTo).toHaveBeenCalledWith(0, 0)
   })
 
-  it('demo kapalıyken (not_configured) statik dosyadaki kayıtlı örnek kartı gösterilir', async () => {
-    demoStatus = makeStatus({ enabled: false, reason: 'not_configured' })
-    open('/')
+  it('"Hakkında" projeyi anlatır ve statik dosyadaki kayıtlı örnek kartını gösterir; API çağrısı yok', async () => {
+    open('/hakkinda')
 
+    expect(await screen.findByRole('heading', { name: 'TalepAkış hakkında' })).toBeInTheDocument()
     const card = await screen.findByRole('region', { name: 'Kayıtlı örnek' })
     expect(card).toHaveTextContent('Kayıtlı örnek ·')
+    expect(calls.some((url) => url.includes('/demo/'))).toBe(false)
+  })
+
+  it('ana sayfa şikâyet portalıdır: kayıtlı örnek ve araştırma anlatımı orada yer almaz', async () => {
+    demoStatus = makeStatus({ enabled: false, reason: 'not_configured', accepting: true, engine: 'rules' })
+    open('/')
+
+    await screen.findByTestId('wake-summary')
+    expect(screen.getByRole('form', { name: 'Talep formu' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Kayıtlı örnek' })).toBeNull()
     expect(calls.some((url) => url.includes('/demo/decisions') || url.includes('/demo/session'))).toBe(false)
   })
 
